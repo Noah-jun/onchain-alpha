@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>OnChain Alpha - 市场信号聚合平台</title>
+ <script src="https://cdn.tailwindcss.com"></script>
+ <script src="https://unpkg.com/lucide@latest"></script>
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+ <style>
+ body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+ .font-mono { font-family: 'JetBrains Mono', monospace; }
+ @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+ .pulse-dot { animation: pulse-dot 1.5s infinite; }
+ @keyframes lightning { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+ .lightning { animation: lightning 1.2s infinite; }
+ .signal-card { transition: all 0.2s ease; }
+ .signal-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+ .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+ .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+ .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+ </style>
+</head>
+<body class="text-slate-700 antialiased">
+
+ <div class="min-h-screen flex flex-col">
+ 
+ <!-- 顶部导航 -->
+ <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+ <div class="flex items-center gap-3">
+ <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+ <i data-lucide="activity" class="w-5 h-5 text-white"></i>
+ </div>
+ <div>
+ <h1 class="text-lg font-bold text-slate-800 tracking-tight">OnChain Alpha</h1>
+ </div>
+ </div>
+
+ <div class="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+ <button onclick="switchTab('signals')" id="tab-signals" class="px-5 py-2 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white shadow-md flex items-center gap-2">
+ <i data-lucide="radio-receiver" class="w-4 h-4"></i>
+ 市场信号
+ </button>
+ <button onclick="switchTab('research')" id="tab-research" class="px-5 py-2 rounded-lg text-sm font-medium transition-all text-slate-600 hover:text-slate-800 hover:bg-white flex items-center gap-2">
+ <i data-lucide="brain" class="w-4 h-4"></i>
+ AI 投研助手
+ </button>
+ </div>
+
+ <div class="flex items-center gap-3">
+ <button class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500 hover:border-indigo-300 transition-colors">
+ <i data-lucide="search" class="w-3.5 h-3.5"></i>
+ <span>Cmd K</span>
+ </button>
+ <div class="flex items-center gap-2 text-xs text-slate-500">
+ <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>
+ <span>系统正常</span>
+ </div>
+ </div>
+ </header>
+
+ <!-- 顶部市场状态栏 -->
+ <div class="bg-white border-b border-slate-200 px-6 py-3">
+ <div class="flex items-stretch gap-3">
+ 
+ <!-- 恐慌指数 -->
+ <div class="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-amber-50 border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
+ <div>
+ <div class="text-[10px] text-slate-500 mb-0.5">恐慌指数</div>
+ <div class="flex items-baseline gap-1.5">
+ <span class="text-xl font-bold text-slate-800 font-mono">72</span>
+ <span class="text-xs font-medium text-amber-600">贪婪</span>
+ </div>
+ </div>
+ </div>
+
+ <!-- BTC/USDT -->
+ <div class="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
+ <div class="flex-1">
+ <div class="text-[10px] text-slate-500">BTC/USDT</div>
+ <div class="text-lg font-bold text-slate-800 font-mono">$67,234</div>
+ </div>
+ <div class="text-right">
+ <div class="text-xs font-medium text-emerald-600">+2.34%</div>
+ </div>
+ </div>
+
+ <!-- ETH/USDT -->
+ <div class="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
+ <div class="flex-1">
+ <div class="text-[10px] text-slate-500">ETH/USDT</div>
+ <div class="text-lg font-bold text-slate-800 font-mono">$3,456</div>
+ </div>
+ <div class="text-right">
+ <div class="text-xs font-medium text-emerald-600">+1.56%</div>
+ </div>
+ </div>
+
+ <!-- 纳斯达克 -->
+ <div class="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
+ <div class="flex-1">
+ <div class="text-[10px] text-slate-500">纳斯达克</div>
+ <div class="text-lg font-bold text-slate-800 font-mono">15,420</div>
+ </div>
+ <div class="text-right">
+ <div class="text-xs font-medium text-emerald-600">+0.82%</div>
+ </div>
+ </div>
+
+ <!-- 标普500 -->
+ <div class="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
+ <div class="flex-1">
+ <div class="text-[10px] text-slate-500">标普500</div>
+ <div class="text-lg font-bold text-slate-800 font-mono">5,123</div>
+ </div>
+ <div class="text-right">
+ <div class="text-xs font-medium text-emerald-600">+0.45%</div>
+ </div>
+ </div>
+
+ </div>
+ </div>
+
+ <!-- 主内容区 -->
+ <main class="flex-1 flex">
+ 
+ <!-- 页面1: 市场信号 -->
+ <div id="page-signals" class="flex-1 flex">
+ 
+ <!-- 左侧：信号流 -->
+ <div class="flex-1 flex flex-col border-r border-slate-200">
+ 
+ <!-- 筛选栏 -->
+ <div class="px-6 py-3 bg-white border-b border-slate-100 flex items-center justify-between">
+ <div class="flex items-center gap-2">
+ <span class="text-xs text-slate-500">筛选:</span>
+ <button class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">全部</button>
+ <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs hover:bg-slate-200">巨鲸转账</button>
+ <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs hover:bg-slate-200">异常波动</button>
+ <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs hover:bg-slate-200">资金费率</button>
+ <button class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs hover:bg-slate-200">大额清算</button>
+ </div>
+ <div class="text-xs text-slate-400">实时推送中...</div>
+ </div>
+
+ <!-- 信号列表 -->
+ <div class="flex-1 overflow-y-auto p-6 space-y-3 scrollbar-thin bg-slate-50/50">
+ 
+ <!-- 信号卡片1 -->
+ <div class="signal-card bg-white rounded-xl p-4 border border-slate-200 cursor-pointer">
+ <div class="flex items-start gap-4">
+ <!-- 左侧：类型图标 -->
+ <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+ <span class="text-xl lightning">⚡</span>
+ </div>
+ 
+ <!-- 中间：内容 -->
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-1">
+ <span class="text-sm font-semibold text-slate-800">SOL</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700">异常波动</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">+28.5%</span>
+ <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-dot"></span>
+ <span class="text-[10px] text-slate-400">2分钟前</span>
+ </div>
+ <div class="text-xs text-slate-500 mb-2">Solana DEX 成交量暴涨</div>
+ <div class="flex items-center gap-2">
+ <span class="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">成交量 ↑280%</span>
+ <span class="px-2 py-1 rounded bg-emerald-50 text-[10px] text-emerald-600 border border-emerald-100">伴随巨鲸流入</span>
+ </div>
+ </div>
+ 
+ <!-- 右侧：操作 -->
+ <button class="text-indigo-500 text-xs font-medium hover:text-indigo-700">详情 →</button>
+ </div>
+ </div>
+
+ <!-- 信号卡片2 -->
+ <div class="signal-card bg-white rounded-xl p-4 border border-red-200 cursor-pointer">
+ <div class="flex items-start gap-4">
+ <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+ <span class="text-xl">🐋</span>
+ </div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-1">
+ <span class="text-sm font-semibold text-slate-800">Jump Trading</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">高风险</span>
+ <span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">巨鲸转账</span>
+ <span class="w-1.5 h-1.5 rounded-full bg-red-500 pulse-dot"></span>
+ <span class="text-[10px] text-slate-400">3分钟前</span>
+ </div>
+ <div class="text-xs text-slate-500 mb-2">500 BTC → Binance</div>
+ <div class="flex items-center gap-2">
+ <span class="px-2 py-1 rounded bg-red-50 text-[10px] text-red-600">↓ 转入交易所</span>
+ <span class="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">Ethereum</span>
+ <span class="text-[10px] text-slate-500 font-mono">$32.5M</span>
+ </div>
+ </div>
+ <button class="text-indigo-500 text-xs font-medium hover:text-indigo-700">详情 →</button>
+ </div>
+ </div>
+
+ <!-- 信号卡片3 -->
+ <div class="signal-card bg-white rounded-xl p-4 border border-slate-200 cursor-pointer">
+ <div class="flex items-start gap-4">
+ <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+ <span class="text-xl">⚡</span>
+ </div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-1">
+ <span class="text-sm font-semibold text-slate-800">DOGE</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">异常波动</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">-15.2%</span>
+ <span class="w-1.5 h-1.5 rounded-full bg-red-500 pulse-dot"></span>
+ <span class="text-[10px] text-slate-400">5分钟前</span>
+ </div>
+ <div class="text-xs text-slate-500 mb-2">memecoin 板块普跌</div>
+ <div class="flex items-center gap-2">
+ <span class="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">成交量 ↑156%</span>
+ <span class="px-2 py-1 rounded bg-amber-50 text-[10px] text-amber-600 border border-amber-100">孤立波动</span>
+ </div>
+ </div>
+ <button class="text-indigo-500 text-xs font-medium hover:text-indigo-700">详情 →</button>
+ </div>
+ </div>
+
+ <!-- 信号卡片4 -->
+ <div class="signal-card bg-white rounded-xl p-4 border border-slate-200 cursor-pointer">
+ <div class="flex items-start gap-4">
+ <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
+ <span class="text-lg">📊</span>
+ </div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-1">
+ <span class="text-sm font-semibold text-slate-800">Binance</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">资金费率</span>
+ <span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">BTC-USDT</span>
+ <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+ <span class="text-[10px] text-slate-400">8分钟前</span>
+ </div>
+ <div class="text-xs text-slate-500 mb-2">费率创季度新低</div>
+ <div class="flex items-center gap-2">
+ <span class="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">OI变化: ↑15%</span>
+ <span class="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">多空比: 0.52</span>
+ <span class="text-[10px] text-red-500 font-medium">-0.08%</span>
+ </div>
+ </div>
+ <button class="text-indigo-500 text-xs font-medium hover:text-indigo-700">详情 →</button>
+ </div>
+ </div>
+
+ <!-- 信号卡片5 -->
+ <div class="signal-card bg-white rounded-xl p-4 border border-slate-200 cursor-pointer">
+ <div class="flex items-start gap-4">
+ <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+ <span class="text-lg">💧</span>
+ </div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-1">
+ <span class="text-sm font-semibold text-slate-800">Aave</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">大额清算</span>
+ <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+ <span class="text-[10px] text-slate-400">12分钟前</span>
+ </div>
+ <div class="text-xs text-slate-500 mb-2">1.2M USDC 被清算</div>
+ <div class="flex items-center gap-2">
+ <span class="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">Ethereum</span>
+ <span class="text-[10px] text-slate-500 font-mono">$1.2M</span>
+ </div>
+ </div>
+ <button class="text-indigo-500 text-xs font-medium hover:text-indigo-700">详情 →</button>
+ </div>
+ </div>
+
+ <!-- 信号卡片6 -->
+ <div class="signal-card bg-white rounded-xl p-4 border border-slate-200 cursor-pointer">
+ <div class="flex items-start gap-4">
+ <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+ <span class="text-xl">🐋</span>
+ </div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-1">
+ <span class="text-sm font-semibold text-slate-800">未知钱包</span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">低风险</span>
+ <span class="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">巨鲸转账</span>
+ <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+ <span class="text-[10px] text-slate-400">28分钟前</span>
+ </div>
+ <div class="text-xs text-slate-500 mb-2">5M USDT → Coinbase</div>
+ <div class="flex items-center gap-2">
+ <span class="px-2 py-1 rounded bg-emerald-50 text-[10px] text-emerald-600">↑ 转出交易所</span>
+ <span class="text-[10px] text-slate-500 font-mono">$5M</span>
+ </div>
+ </div>
+ <button class="text-indigo-500 text-xs font-medium hover:text-indigo-700">详情 →</button>
+ </div>
+ </div>
+
+ <!-- 更多信号 -->
+ <div class="text-center py-4">
+ <button class="px-4 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors">
+ 加载更多信号
+ </button>
+ </div>
+
+ </div>
+ </div>
+
+ <!-- 右侧：详情面板 -->
+ <div class="w-96 bg-white flex flex-col">
+ <div class="p-4 border-b border-slate-200">
+ <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+ <i data-lucide="file-text" class="w-4 h-4 text-indigo-500"></i>
+ 信号详情
+ </h3>
+ </div>
+ 
+ <div class="flex-1 overflow-y-auto p-4">
+ <div class="text-center py-12 text-slate-400">
+ <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+ <i data-lucide="mouse-pointer-click" class="w-5 h-5"></i>
+ </div>
+ <p class="text-sm">点击左侧信号查看详情</p>
+ <p class="text-xs text-slate-400 mt-1">实时数据，无AI解读</p>
+ </div>
+ </div>
+
+ <div class="p-4 border-t border-slate-200 bg-slate-50">
+ <div class="text-[10px] text-slate-400 text-center">数据来源：链上实时监测</div>
+ </div>
+ </div>
+
+ </div>
+
+ <!-- 页面2: AI投研助手 -->
+ <div id="page-research" class="flex-1 hidden">
+ <div class="flex h-full">
+ 
+ <!-- 左侧：知识库 -->
+ <div class="w-72 bg-white border-r border-slate-200 flex flex-col">
+ <div class="p-4 border-b border-slate-200">
+ <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-2">
+ <i data-lucide="database" class="w-4 h-4 text-indigo-500"></i>
+ 知识库
+ </h3>
+ </div>
+ 
+ <div class="p-4">
+ <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-indigo-400 transition-colors cursor-pointer group">
+ <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-400 group-hover:text-indigo-500 mx-auto mb-2"></i>
+ <p class="text-xs text-slate-500">拖拽上传 PDF/MD</p>
+ <p class="text-[10px] text-slate-400 mt-1">最大 10MB</p>
+ </div>
+ </div>
+
+ <div class="flex-1 overflow-y-auto p-4 space-y-3">
+ <div class="text-[10px] text-slate-500 uppercase tracking-wider font-medium">已上传文档</div>
+ 
+ <div class="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+ <div class="flex items-start gap-2">
+ <i data-lucide="file-text" class="w-4 h-4 text-indigo-500 mt-0.5"></i>
+ <div class="flex-1 min-w-0">
+ <div class="text-sm text-slate-800 truncate">Uniswap v3 白皮书</div>
+ <div class="text-[10px] text-slate-500 mt-0.5">42 页 • 2天前</div>
+ </div>
+ <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-500"></i>
+ </div>
+ </div>
+
+ <div class="bg-slate-50 rounded-lg p-3">
+ <div class="flex items-start gap-2">
+ <i data-lucide="file-text" class="w-4 h-4 text-slate-400 mt-0.5"></i>
+ <div class="flex-1 min-w-0">
+ <div class="text-sm text-slate-700 truncate">Aave 代币经济模型</div>
+ <div class="text-[10px] text-slate-500 mt-0.5">28 页 • 1周前</div>
+ </div>
+ </div>
+ </div>
+
+ <div class="pt-3 border-t border-slate-200 mt-3">
+ <div class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-2">链上数据源</div>
+ <label class="flex items-center gap-2 cursor-pointer py-1">
+ <input type="checkbox" checked class="rounded border-slate-300 text-indigo-500">
+ <span class="text-xs text-slate-600">实时价格</span>
+ </label>
+ <label class="flex items-center gap-2 cursor-pointer py-1">
+ <input type="checkbox" checked class="rounded border-slate-300 text-indigo-500">
+ <span class="text-xs text-slate-600">巨鲸持仓</span>
+ </label>
+ <label class="flex items-center gap-2 cursor-pointer py-1">
+ <input type="checkbox" class="rounded border-slate-300 text-indigo-500">
+ <span class="text-xs text-slate-400">社交情绪 <span class="text-[10px] text-indigo-400">Pro</span></span>
+ </label>
+ </div>
+ </div>
+ </div>
+
+ <!-- 右侧：对话区 -->
+ <div class="flex-1 flex flex-col bg-slate-50">
+ <div class="flex-1 overflow-y-auto p-6 space-y-4" id="chat-container">
+ 
+ <div class="text-center py-8">
+ <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/20">
+ <i data-lucide="brain" class="w-7 h-7 text-white"></i>
+ </div>
+ <h2 class="text-xl font-bold text-slate-800 mb-2">AI 投研助手</h2>
+ <p class="text-slate-500 text-sm">基于 RAG 技术，结合知识库与链上数据</p>
+ </div>
+
+ <div class="flex flex-wrap gap-2 justify-center">
+ <button class="px-4 py-2 rounded-full bg-white border border-slate-200 text-xs text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm">
+ 分析 ETH 前 10 地址风险
+ </button>
+ <button class="px-4 py-2 rounded-full bg-white border border-slate-200 text-xs text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm">
+ 对比 Uniswap 与 Curve
+ </button>
+ <button class="px-4 py-2 rounded-full bg-white border border-slate-200 text-xs text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm">
+ 解读巨鲸转账信号
+ </button>
+ </div>
+
+ <div class="flex gap-3 pt-4">
+ <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+ <i data-lucide="brain" class="w-4 h-4 text-white"></i>
+ </div>
+ <div class="flex-1">
+ <div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 shadow-sm border border-slate-100">
+ <p class="mb-2">您好，已连接知识库与链上数据源：</p>
+ <ul class="space-y-1 text-slate-600">
+ <li>• BTC 恐慌指数 72（贪婪）</li>
+ <li>• 检测到 3 笔大额交易所流入</li>
+ <li>• 知识库已加载 2 份文档</li>
+ </ul>
+ </div>
+ </div>
+ </div>
+
+ </div>
+
+ <div class="p-4 bg-white border-t border-slate-200">
+ <div class="relative">
+ <textarea id="chat-input" placeholder="输入投研问题..." rows="1" class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 resize-none" style="min-height: 48px; max-height: 120px;"></textarea>
+ <button onclick="sendMessage()" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors">
+ <i data-lucide="send" class="w-4 h-4 text-white"></i>
+ </button>
+ </div>
+ <div class="text-[10px] text-slate-400 mt-2 text-center">AI 仅供参考，不构成投资建议</div>
+ </div>
+ </div>
+
+ </div>
+ </div>
+
+ </main>
+ </div>
+
+ <script>
+ lucide.createIcons();
+
+ function switchTab(tab) {
+ if (tab === 'signals') {
+ document.getElementById('page-signals').classList.remove('hidden');
+ document.getElementById('page-research').classList.add('hidden');
+ document.getElementById('tab-signals').classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+ document.getElementById('tab-signals').classList.remove('text-slate-600', 'hover:text-slate-800', 'hover:bg-white');
+ document.getElementById('tab-research').classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+ document.getElementById('tab-research').classList.add('text-slate-600', 'hover:text-slate-800', 'hover:bg-white');
+ } else {
+ document.getElementById('page-research').classList.remove('hidden');
+ document.getElementById('page-signals').classList.add('hidden');
+ document.getElementById('tab-research').classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+ document.getElementById('tab-research').classList.remove('text-slate-600', 'hover:text-slate-800', 'hover:bg-white');
+ document.getElementById('tab-signals').classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+ document.getElementById('tab-signals').classList.add('text-slate-600', 'hover:text-slate-800', 'hover:bg-white');
+ }
+ }
+
+ function sendMessage() {
+ const input = document.getElementById('chat-input');
+ const text = input.value.trim();
+ if (!text) return;
+ 
+ const container = document.getElementById('chat-container');
+ 
+ const userDiv = document.createElement('div');
+ userDiv.className = 'flex gap-3 justify-end';
+ userDiv.innerHTML = `<div class="bg-indigo-600 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-[80%] shadow-md">${text}</div>`;
+ container.appendChild(userDiv);
+ input.value = '';
+ 
+ setTimeout(() => {
+ const aiDiv = document.createElement('div');
+ aiDiv.className = 'flex gap-3';
+ aiDiv.innerHTML = `<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0"><i data-lucide="brain" class="w-4 h-4 text-white"></i></div><div class="flex-1"><div class="bg-white rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 shadow-sm border border-slate-100">正在分析...</div></div>`;
+ container.appendChild(aiDiv);
+ lucide.createIcons();
+ container.scrollTop = container.scrollHeight;
+ }, 500);
+ 
+ container.scrollTop = container.scrollHeight;
+ }
+ </script>
+
+</body>
+</html>

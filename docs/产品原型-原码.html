@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>OnChain Alpha - 双核架构原型</title>
+ <script src="https://cdn.tailwindcss.com"></script>
+ <script src="https://unpkg.com/lucide@latest"></script>
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+ <style>
+ body { font-family: 'Inter', sans-serif; background-color: #0a0e1a; }
+ .font-mono { font-family: 'JetBrains Mono', monospace; }
+ .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+ .glass-card { background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(99, 102, 241, 0.15); }
+ .neon-glow { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+ .text-gradient { background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+ @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } }
+ .pulse-danger { animation: pulse-red 2s infinite; }
+ .scrollbar-hide::-webkit-scrollbar { display: none; }
+ .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+ .gauge-bg { stroke: #1e293b; }
+ .gauge-value { stroke: url(#gradient); stroke-linecap: round; }
+ </style>
+</head>
+<body class="text-slate-300 antialiased overflow-hidden">
+
+ <!-- 顶部导航 - 简化为双Tab -->
+ <nav class="fixed top-0 left-0 right-0 h-16 glass z-50 flex items-center justify-between px-6">
+ <div class="flex items-center gap-3">
+ <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center neon-glow">
+ <i data-lucide="activity" class="w-5 h-5 text-white"></i>
+ </div>
+ <div>
+ <h1 class="text-lg font-bold text-white tracking-tight">OnChain Alpha</h1>
+ <span class="text-xs text-slate-500">智能投研终端</span>
+ </div>
+ </div>
+
+ <div class="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 border border-slate-700/50">
+ <button onclick="switchTab('intelligence')" id="nav-intelligence" class="px-6 py-2 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+ <i data-lucide="radar" class="w-4 h-4"></i>
+ 市场情报中心
+ </button>
+ <button onclick="switchTab('research')" id="nav-research" class="px-6 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center gap-2">
+ <i data-lucide="brain" class="w-4 h-4"></i>
+ AI 投研助手
+ </button>
+ </div>
+
+ <div class="flex items-center gap-4">
+ <button class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700 text-xs text-slate-400 hover:border-indigo-500/50 transition-colors">
+ <i data-lucide="search" class="w-3.5 h-3.5"></i>
+ <span>Cmd K</span>
+ </button>
+ <div class="flex items-center gap-2">
+ <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+ <span class="text-xs text-slate-500">系统正常</span>
+ </div>
+ </div>
+ </nav>
+
+ <main class="pt-16 h-screen">
+ 
+ <!-- 页面1: 市场情报中心（信号舱 + 风险预警合并） -->
+ <div id="page-intelligence" class="h-full flex flex-col p-6 gap-6">
+ 
+ <!-- 顶部风险仪表盘区（原风险预警核心指标） -->
+ <div class="grid grid-cols-4 gap-4 shrink-0 h-28">
+ <!-- 恐慌指数 -->
+ <div class="glass-card rounded-2xl p-4 relative overflow-hidden flex items-center gap-4">
+ <div class="relative w-20 h-20 shrink-0">
+ <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
+ <path class="gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"/>
+ <path class="gauge-value" stroke-dasharray="65, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3" stroke="url(#gradient1)"/>
+ <defs>
+ <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+ <stop offset="0%" stop-color="#fbbf24" />
+ <stop offset="100%" stop-color="#f59e0b" />
+ </linearGradient>
+ </defs>
+ </svg>
+ <div class="absolute inset-0 flex items-center justify-center">
+ <span class="text-lg font-bold text-white font-mono">65</span>
+ </div>
+ </div>
+ <div>
+ <div class="text-slate-400 text-xs mb-1">恐慌指数</div>
+ <div class="text-yellow-400 text-sm font-medium">贪婪区间</div>
+ <div class="text-[10px] text-slate-500 mt-1">↑ 12% 较1小时前</div>
+ </div>
+ </div>
+
+ <!-- 巨鲸抛压 -->
+ <div class="glass-card rounded-2xl p-4 relative overflow-hidden flex items-center gap-4 border-red-500/20">
+ <div class="relative w-20 h-20 shrink-0">
+ <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
+ <path class="gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"/>
+ <path class="gauge-value" stroke-dasharray="82, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#ef4444" stroke-width="3"/>
+ </svg>
+ <div class="absolute inset-0 flex items-center justify-center">
+ <span class="text-lg font-bold text-white font-mono">82</span>
+ </div>
+ </div>
+ <div>
+ <div class="text-slate-400 text-xs mb-1">巨鲸抛压风险</div>
+ <div class="text-red-400 text-sm font-medium flex items-center gap-1">
+ <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+ 高危
+ </div>
+ <div class="text-[10px] text-slate-500 mt-1">大额转账异常</div>
+ </div>
+ </div>
+
+ <!-- 资金费率 -->
+ <div class="glass-card rounded-2xl p-4 relative overflow-hidden flex items-center gap-4">
+ <div class="relative w-20 h-20 shrink-0">
+ <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
+ <path class="gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"/>
+ <path class="gauge-value" stroke-dasharray="45, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10b981" stroke-width="3"/>
+ </svg>
+ <div class="absolute inset-0 flex items-center justify-center">
+ <span class="text-lg font-bold text-white font-mono">-0.08</span>
+ </div>
+ </div>
+ <div>
+ <div class="text-slate-400 text-xs mb-1">资金费率</div>
+ <div class="text-emerald-400 text-sm font-medium">正常区间</div>
+ <div class="text-[10px] text-slate-500 mt-1">空头情绪缓和</div>
+ </div>
+ </div>
+
+ <!-- 今日概览统计 -->
+ <div class="glass-card rounded-2xl p-4 flex flex-col justify-center">
+ <div class="flex items-center justify-between mb-2">
+ <span class="text-slate-400 text-xs">今日信号统计</span>
+ <i data-lucide="activity" class="w-3.5 h-3.5 text-indigo-400"></i>
+ </div>
+ <div class="grid grid-cols-2 gap-2 text-xs">
+ <div class="bg-slate-800/50 rounded-lg p-2">
+ <div class="text-white font-mono text-base">24</div>
+ <div class="text-slate-500">总信号</div>
+ </div>
+ <div class="bg-red-500/10 rounded-lg p-2 border border-red-500/20">
+ <div class="text-red-400 font-mono text-base">3</div>
+ <div class="text-red-400/70">高风险</div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 主内容区：左右分栏 -->
+ <div class="flex-1 flex gap-6 min-h-0">
+ 
+ <!-- 左侧：实时信号流（原信号舱核心） -->
+ <div class="w-2/5 glass rounded-2xl flex flex-col">
+ <div class="p-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+ <h3 class="text-white font-semibold flex items-center gap-2">
+ <i data-lucide="radio-receiver" class="w-4 h-4 text-indigo-400"></i>
+ 实时信号流
+ </h3>
+ <div class="flex gap-2">
+ <button class="px-2 py-1 rounded bg-indigo-600/20 text-indigo-300 text-xs border border-indigo-500/30">全部</button>
+ <button class="px-2 py-1 rounded bg-slate-800 text-slate-400 text-xs border border-slate-700 hover:border-slate-600">巨鲸</button>
+ <button class="px-2 py-1 rounded bg-slate-800 text-slate-400 text-xs border border-slate-700 hover:border-slate-600">风险</button>
+ </div>
+ </div>
+
+ <div class="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
+ <!-- 高风险信号 -->
+ <div class="glass-card rounded-xl p-4 cursor-pointer hover:border-red-500/30 transition-all group pulse-danger" onclick="showSignalDetail(1)">
+ <div class="flex items-start justify-between mb-2">
+ <div class="flex items-center gap-2">
+ <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400 border border-red-500/30">高危</span>
+ <span class="text-[10px] text-slate-500">巨鲸异动</span>
+ </div>
+ <span class="text-xs text-slate-500 font-mono">5分钟前</span>
+ </div>
+ <h4 class="text-white font-medium mb-1 text-sm group-hover:text-red-300 transition-colors">BTC 巨鲸地址大额转出至交易所</h4>
+ <p class="text-xs text-slate-400 mb-2">0x742d...8f2a 转出 2,000 BTC 至 Binance</p>
+ <div class="flex items-center justify-between text-xs font-mono">
+ <span class="text-slate-500">价值 $1.2亿</span>
+ <button class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-[10px]">
+ <span>AI 解读</span>
+ <i data-lucide="sparkles" class="w-3 h-3"></i>
+ </button>
+ </div>
+ </div>
+
+ <!-- 中风险信号 -->
+ <div class="glass-card rounded-xl p-4 cursor-pointer hover:border-yellow-500/30 transition-all group" onclick="showSignalDetail(2)">
+ <div class="flex items-start justify-between mb-2">
+ <div class="flex items-center gap-2">
+ <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">中危</span>
+ <span class="text-[10px] text-slate-500">资金费率</span>
+ </div>
+ <span class="text-xs text-slate-500 font-mono">12分钟前</span>
+ </div>
+ <h4 class="text-white font-medium mb-1 text-sm">ETH 永续合约资金费率极端负值</h4>
+ <p class="text-xs text-slate-400 mb-2">Binance ETH/USDT 费率跌至 -0.08%</p>
+ <div class="flex items-center justify-between text-xs font-mono">
+ <span class="text-slate-500">情绪: 极度看空</span>
+ <button class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-[10px]">
+ <span>AI 解读</span>
+ <i data-lucide="sparkles" class="w-3 h-3"></i>
+ </button>
+ </div>
+ </div>
+
+ <!-- 普通信号 -->
+ <div class="glass-card rounded-xl p-4 cursor-pointer hover:border-indigo-500/30 transition-all group" onclick="showSignalDetail(3)">
+ <div class="flex items-start justify-between mb-2">
+ <div class="flex items-center gap-2">
+ <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+ <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-700 text-slate-300">低危</span>
+ <span class="text-[10px] text-slate-500">大额转账</span>
+ </div>
+ <span class="text-xs text-slate-500 font-mono">28分钟前</span>
+ </div>
+ <h4 class="text-white font-medium mb-1 text-sm">USDT 大额链上转账</h4>
+ <p class="text-xs text-slate-400 mb-2">0x8aa3...4b21 转出 5M USDT</p>
+ <div class="flex items-center justify-between text-xs font-mono">
+ <span class="text-slate-500">链: Ethereum</span>
+ <button class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-[10px]">
+ <span>AI 解读</span>
+ <i data-lucide="sparkles" class="w-3 h-3"></i>
+ </button>
+ </div>
+ </div>
+
+ <!-- 更多信号... -->
+ <div class="glass-card rounded-xl p-4 opacity-50">
+ <div class="flex items-center justify-center text-xs text-slate-500 py-2">
+ 加载更多历史信号...
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 右侧：风险详情与AI解读（融合原风险预警详情与AI解读） -->
+ <div class="flex-1 flex flex-col gap-6">
+ 
+ <!-- 右上角：活跃风险预警列表（原风险预警表格精简版） -->
+ <div class="h-1/3 glass rounded-2xl flex flex-col">
+ <div class="p-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+ <h3 class="text-white font-semibold flex items-center gap-2 text-sm">
+ <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+ 活跃风险预警
+ </h3>
+ <div class="flex gap-2">
+ <button class="text-[10px] text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800">导出</button>
+ <button class="text-[10px] text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800">全部标记</button>
+ </div>
+ </div>
+ <div class="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
+ <div class="flex items-center gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-colors cursor-pointer">
+ <div class="w-1 h-8 rounded-full bg-red-500"></div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-0.5">
+ <span class="text-xs text-white font-medium">价格偏离+成交量异动</span>
+ <span class="text-[10px] text-slate-500">10分钟前</span>
+ </div>
+ <div class="text-[10px] text-slate-400 truncate">BTC 价格偏离 200MA 且放量下跌 8%</div>
+ </div>
+ <span class="px-2 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">持续中</span>
+ </div>
+
+ <div class="flex items-center gap-3 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10 hover:bg-yellow-500/10 transition-colors cursor-pointer">
+ <div class="w-1 h-8 rounded-full bg-yellow-500"></div>
+ <div class="flex-1 min-w-0">
+ <div class="flex items-center gap-2 mb-0.5">
+ <span class="text-xs text-slate-300 font-medium">巨鲸集中转入</span>
+ <span class="text-[10px] text-slate-500">25分钟前</span>
+ </div>
+ <div class="text-[10px] text-slate-400 truncate">3 个地址 1 小时内转入 Binance</div>
+ </div>
+ <span class="px-2 py-0.5 rounded text-[10px] bg-slate-700 text-slate-400">已缓解</span>
+ </div>
+ </div>
+ </div>
+
+ <!-- 右下角：AI 深度解读面板（原AI解读功能保留） -->
+ <div class="flex-1 glass rounded-2xl flex flex-col min-h-0">
+ <div class="p-4 border-b border-slate-700/50 flex items-center justify-between shrink-0">
+ <h3 class="text-white font-semibold flex items-center gap-2">
+ <i data-lucide="brain" class="w-4 h-4 text-indigo-400"></i>
+ AI 风险解读
+ </h3>
+ <div class="flex items-center gap-2 text-xs">
+ <span class="text-slate-500">数据源:</span>
+ <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">链上</span>
+ <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">历史模式</span>
+ </div>
+ </div>
+ 
+ <div class="flex-1 overflow-y-auto p-6" id="ai-insight-panel">
+ <!-- 默认状态 -->
+ <div class="h-full flex flex-col items-center justify-center text-slate-500">
+ <div class="w-16 h-16 rounded-2xl bg-slate-800/50 flex items-center justify-center mb-4 border border-slate-700">
+ <i data-lucide="mouse-pointer-click" class="w-6 h-6 opacity-50"></i>
+ </div>
+ <p class="text-sm">点击左侧信号或上方预警</p>
+ <p class="text-xs mt-1 opacity-60">查看 AI 深度风险分析</p>
+ </div>
+ </div>
+
+ <!-- 快速操作栏 -->
+ <div class="p-3 border-t border-slate-700/50 flex gap-2 shrink-0">
+ <button class="flex-1 py-2 rounded-lg bg-slate-800/50 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-slate-700/50 flex items-center justify-center gap-1">
+ <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+ 生成风险简报
+ </button>
+ <button class="flex-1 py-2 rounded-lg bg-indigo-600/20 text-xs text-indigo-300 hover:bg-indigo-600/30 transition-colors border border-indigo-500/30 flex items-center justify-center gap-1" onclick="switchTab('research')">
+ <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+ 深入问答
+ </button>
+ </div>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 页面2: AI投研助手（保持独立完整功能） -->
+ <div id="page-research" class="h-full hidden p-6 gap-6 flex">
+ <!-- 左侧边栏 -->
+ <div class="w-80 glass rounded-2xl flex flex-col">
+ <div class="p-4 border-b border-slate-700/50">
+ <h3 class="text-white font-semibold mb-4 flex items-center gap-2">
+ <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i>
+ 知识库
+ </h3>
+ 
+ <div class="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center hover:border-indigo-500/50 transition-colors cursor-pointer group">
+ <i data-lucide="upload-cloud" class="w-6 h-6 text-slate-500 group-hover:text-indigo-400 mx-auto mb-2"></i>
+ <p class="text-xs text-slate-400">拖拽上传 PDF/MD</p>
+ <p class="text-[10px] text-slate-600 mt-1">最大 10MB</p>
+ </div>
+ </div>
+
+ <div class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
+ <div class="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">已上传文档</div>
+ 
+ <div class="glass-card rounded-lg p-3 border-indigo-500/30 bg-indigo-500/5">
+ <div class="flex items-start gap-3">
+ <i data-lucide="file-text" class="w-4 h-4 text-indigo-400 mt-0.5"></i>
+ <div class="flex-1 min-w-0">
+ <div class="text-sm text-white truncate">Uniswap v3 白皮书.pdf</div>
+ <div class="text-[10px] text-slate-500 mt-1">42 页 • 2天前</div>
+ </div>
+ <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-400"></i>
+ </div>
+ </div>
+
+ <div class="glass-card rounded-lg p-3">
+ <div class="flex items-start gap-3">
+ <i data-lucide="file-text" class="w-4 h-4 text-slate-400 mt-0.5"></i>
+ <div class="flex-1 min-w-0">
+ <div class="text-sm text-slate-300 truncate">Aave 代币经济模型.pdf</div>
+ <div class="text-[10px] text-slate-500 mt-1">28 页 • 1周前</div>
+ </div>
+ </div>
+ </div>
+
+ <div class="pt-4 border-t border-slate-700/50 mt-4">
+ <div class="text-xs text-slate-500 mb-3 font-medium uppercase tracking-wider">链上数据源</div>
+ <div class="space-y-2">
+ <label class="flex items-center gap-2 cursor-pointer group">
+ <input type="checkbox" checked class="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500/20">
+ <span class="text-sm text-slate-300 group-hover:text-white transition-colors">实时价格数据</span>
+ </label>
+ <label class="flex items-center gap-2 cursor-pointer group">
+ <input type="checkbox" checked class="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500/20">
+ <span class="text-sm text-slate-300 group-hover:text-white transition-colors">巨鲸持仓变化</span>
+ </label>
+ <label class="flex items-center gap-2 cursor-pointer group">
+ <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500/20">
+ <span class="text-sm text-slate-500 group-hover:text-slate-300 transition-colors">社交情绪数据</span>
+ <span class="text-[10px] text-slate-700 ml-auto">Pro</span>
+ </label>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- 右侧对话区 -->
+ <div class="flex-1 glass rounded-2xl flex flex-col">
+ <div class="flex-1 overflow-y-auto p-6 space-y-6" id="chat-container">
+ <div class="text-center py-8">
+ <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 neon-glow">
+ <i data-lucide="brain" class="w-8 h-8 text-white"></i>
+ </div>
+ <h2 class="text-2xl font-bold text-white mb-2">AI 投研助手</h2>
+ <p class="text-slate-400 text-sm max-w-md mx-auto">基于 RAG 技术，结合知识库与链上数据，提供深度投研分析</p>
+ </div>
+
+ <div class="flex flex-wrap gap-2 justify-center max-w-2xl mx-auto">
+ <button onclick="askQuestion('分析当前 ETH 前 10 地址持仓风险')" class="px-4 py-2 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:border-indigo-500/50 hover:text-white transition-all">
+ 分析 ETH 前 10 地址持仓风险
+ </button>
+ <button onclick="askQuestion('对比 Uniswap 与 Curve 代币模型')" class="px-4 py-2 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:border-indigo-500/50 hover:text-white transition-all">
+ 对比 Uniswap 与 Curve 代币模型
+ </button>
+ <button onclick="askQuestion('解读刚才的巨鲸转账信号')" class="px-4 py-2 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:border-indigo-500/50 hover:text-white transition-all">
+ 解读刚才的巨鲸转账信号
+ </button>
+ </div>
+
+ <div class="flex gap-4">
+ <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+ <i data-lucide="brain" class="w-4 h-4 text-white"></i>
+ </div>
+ <div class="flex-1">
+ <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-300 leading-relaxed">
+ <p class="mb-3">您好，我已连接知识库与链上数据源。当前市场概况：</p>
+ <ul class="space-y-2 mb-3 list-disc list-inside text-slate-400">
+ <li>BTC 恐慌指数 65（贪婪)，但巨鲸抛压风险达 82（高危）</li>
+ <li>过去 1 小时检测到 3 笔大额交易所流入</li>
+ <li>知识库已加载 3 份文档，可随时提问</li>
+ </ul>
+ <p class="text-slate-400">您想了解哪个方面的分析？</p>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <div class="p-4 border-t border-slate-700/50">
+ <div class="relative">
+ <textarea id="chat-input" placeholder="输入你的投研问题..." rows="1" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none" style="min-height: 48px; max-height: 120px;"></textarea>
+ <button onclick="sendMessage()" class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors">
+ <i data-lucide="send" class="w-4 h-4 text-white"></i>
+ </button>
+ </div>
+ <div class="text-[10px] text-slate-600 mt-2 text-center">AI 生成内容仅供参考，不构成投资建议</div>
+ </div>
+ </div>
+ </div>
+
+ </main>
+
+ <script>
+ lucide.createIcons();
+
+ function switchTab(tab) {
+ if (tab === 'intelligence') {
+ document.getElementById('page-intelligence').classList.remove('hidden');
+ document.getElementById('page-intelligence').classList.add('flex');
+ document.getElementById('page-research').classList.add('hidden');
+ document.getElementById('page-research').classList.remove('flex');
+ 
+ document.getElementById('nav-intelligence').classList.add('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-500/25');
+ document.getElementById('nav-intelligence').classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-700/50');
+ 
+ document.getElementById('nav-research').classList.remove('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-500/25');
+ document.getElementById('nav-research').classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-700/50');
+ } else {
+ document.getElementById('page-research').classList.remove('hidden');
+ document.getElementById('page-research').classList.add('flex');
+ document.getElementById('page-intelligence').classList.add('hidden');
+ document.getElementById('page-intelligence').classList.remove('flex');
+ 
+ document.getElementById('nav-research').classList.add('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-500/25');
+ document.getElementById('nav-research').classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-700/50');
+ 
+ document.getElementById('nav-intelligence').classList.remove('bg-indigo-600', 'text-white', 'shadow-lg', 'shadow-indigo-500/25');
+ document.getElementById('nav-intelligence').classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-700/50');
+ }
+ }
+
+ function showSignalDetail(id) {
+ const panel = document.getElementById('ai-insight-panel');
+ const content = {
+ 1: `
+ <div class="space-y-4">
+ <div class="flex items-center gap-3 mb-4">
+ <span class="px-3 py-1 rounded-full text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20">看空信号</span>
+ <span class="text-xs text-slate-500">置信度 87%</span>
+ <span class="text-xs text-slate-600">•</span>
+ <span class="text-xs text-slate-500">基于历史模式分析</span>
+ </div>
+ 
+ <div class="space-y-3 text-sm text-slate-300 leading-relaxed">
+ <p>该地址（0x742d...8f2a）为机构托管钱包，历史上曾在 2024-12-15、2025-01-20 进行过类似规模转账：</p>
+ 
+ <div class="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 space-y-2">
+ <div class="flex justify-between text-xs items-center">
+ <span class="text-slate-400">2024-12-15 转出后</span>
+ <span class="text-red-400 font-mono">-6.2% (48h)</span>
+ </div>
+ <div class="w-full bg-slate-700 h-1 rounded-full">
+ <div class="bg-red-500 h-1 rounded-full" style="width: 62%"></div>
+ </div>
+ <div class="flex justify-between text-xs items-center mt-2">
+ <span class="text-slate-400">2025-01-20 转出后</span>
+ <span class="text-red-400 font-mono">-4.8% (48h)</span>
+ </div>
+ <div class="w-full bg-slate-700 h-1 rounded-full">
+ <div class="bg-red-500 h-1 rounded-full" style="width: 48%"></div>
+ </div>
+ </div>
+
+ <div class="bg-red-500/5 border border-red-500/10 rounded-lg p-3">
+ <div class="text-red-400 text-xs font-medium mb-1">风险警示</div>
+ <p class="text-xs text-slate-400">当前该地址剩余持仓仅占总供应量 0.8%，结合资金费率 -0.01%（空头情绪），短期抛压风险极高。</p>
+ </div>
+ </div>
+
+ <div class="pt-4 border-t border-slate-700/50">
+ <div class="text-xs text-slate-500 mb-2 uppercase tracking-wider">数据溯源</div>
+ <div class="space-y-1.5 text-xs font-mono">
+ <div class="flex items-center gap-2 text-slate-400 bg-slate-800/30 p-2 rounded">
+ <span class="text-indigo-400">[1]</span>
+ <span class="truncate">Etherscan: 0x742d...8f2a → Binance</span>
+ </div>
+ <div class="flex items-center gap-2 text-slate-400 bg-slate-800/30 p-2 rounded">
+ <span class="text-indigo-400">[2]</span>
+ <span>历史行为模式库 (n=12)</span>
+ </div>
+ </div>
+ </div>
+ </div>
+ `,
+ 2: `
+ <div class="space-y-4">
+ <div class="flex items-center gap-3 mb-4">
+ <span class="px-3 py-1 rounded-full text-sm font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">中性偏空</span>
+ <span class="text-xs text-slate-500">置信度 72%</span>
+ </div>
+ <p class="text-sm text-slate-300">资金费率负值表明空头支付多头，反映市场看空情绪，但尚未达到极端恐慌水平（<-0.1%）。</p>
+ <div class="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+ <div class="text-xs text-slate-500 mb-2">建议关注</div>
+ <div class="text-xs text-slate-400">若费率持续低于 -0.05% 超过 6 小时，可能触发空头挤压反弹。</div>
+ </div>
+ </div>
+ `,
+ 3: `
+ <div class="space-y-4">
+ <div class="flex items-center gap-3 mb-4">
+ <span class="px-3 py-1 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">中性</span>
+ <span class="text-xs text-slate-500">无显著风险</span>
+ </div>
+ <p class="text-sm text-slate-300">USDT 大额转账常见于机构资金调配，destination 地址为未知冷钱包，暂无可疑特征。</p>
+ </div>
+ `
+ };
+ 
+ panel.innerHTML = content[id] || content[1];
+ }
+
+ function askQuestion(text) {
+ document.getElementById('chat-input').value = text;
+ sendMessage();
+ }
+
+ function sendMessage() {
+ const input = document.getElementById('chat-input');
+ const text = input.value.trim();
+ if (!text) return;
+ 
+ const container = document.getElementById('chat-container');
+ 
+ // 用户消息
+ const userDiv = document.createElement('div');
+ userDiv.className = 'flex gap-4 justify-end';
+ userDiv.innerHTML = `
+ <div class="bg-indigo-600 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-[80%]">
+ ${text}
+ </div>
+ `;
+ container.appendChild(userDiv);
+ input.value = '';
+ 
+ // AI 回复模拟
+ setTimeout(() => {
+ const aiDiv = document.createElement('div');
+ aiDiv.className = 'flex gap-4';
+ aiDiv.innerHTML = `
+ <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+ <i data-lucide="brain" class="w-4 h-4 text-white"></i>
+ </div>
+ <div class="flex-1">
+ <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-300">
+ 正在分析链上数据与知识库文档，请稍候...
+ </div>
+ </div>
+ `;
+ container.appendChild(aiDiv);
+ lucide.createIcons();
+ container.scrollTop = container.scrollHeight;
+ }, 600);
+ 
+ container.scrollTop = container.scrollHeight;
+ }
+ </script>
+</body>
+</html>

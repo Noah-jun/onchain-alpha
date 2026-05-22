@@ -340,7 +340,7 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
               key={coin.id}
 
-              onClick={() => onSelect(coin.id)}
+              onClick={() => onSelect(coin.symbol)}
 
               className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 cursor-pointer transition-colors"
 
@@ -1940,17 +1940,7 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
       </div>
 
-      {/* 新闻 */}
 
-      {news && news.length > 0 && (
-
-        <InfoBlock title="📰 相关新闻">
-
-          <div className="space-y-2">{news.map((item: string, i: number) => <div key={i} className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 leading-relaxed">📌 {item}</div>)}</div>
-
-        </InfoBlock>
-
-      )}
 
     </div>
 
@@ -2209,9 +2199,9 @@ export default function Home() {
 
   }, [])
 
-  const handleProjectSelect = (coinId: string) => {
+  const handleProjectSelect = (symbol: string) => {
 
-    setSelectedCoinId(coinId)
+    setSelectedCoinId(`project:${symbol.toUpperCase()}`)
 
     setResearchView('detail')
 

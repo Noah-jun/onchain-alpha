@@ -239,7 +239,63 @@ export const CRYPTO_CONCEPTS: CryptoConcept[] = [
       { name: 'MicroStrategy', symbol: 'MSTR', description: '持续买入 BTC 的上市公司典范' },
     ],
     trends: 'BTC ETF 持续净流入，ETH ETF 已获批，债券代币化产品探索中'
-  }
+  },
+  {
+    id: 'perp-dex',
+    term: 'Perp DEX',
+    aliases: ['永续合约DEX', '去中心化永续合约', 'Perpetual DEX'],
+    category: 'DeFi',
+    definition: 'Perp DEX（去中心化永续合约交易所）是无需中心化机构提供永续合约交易的平台。用户无需 KYC，在非托管环境下开多/做空带杠杆的数字资产。主流机制包括：虚拟 AMM（vAMM）、订单簿+DEX、以及链下匹配+链上结算等。',
+    developmentStatus: 'dYdX 和 Hyperliquid 是领军者。dYdX 已迁移至自己的 Cosmos 应用链。Hyperliquid 以其高吞吐量 L1 和友好的交易界面快速增长，日交易量多次突破 10 亿美元。Synthetix Perps 是另一种基于合成资产的方案。',
+    representativeProjects: [
+      { name: 'Hyperliquid', symbol: 'HYPE', description: '高性能 L1 DeFi，专注于永续合约交易' },
+      { name: 'dYdX', symbol: 'DYDX', description: 'v4 迁移至 Cosmos 链，完全去中心化订单簿' },
+      { name: 'Synthetix', symbol: 'SNX', description: '合成资产永续合约，交易深度由债务池支持' },
+      { name: 'Drift Protocol', symbol: 'DRIFT', description: 'Solana 上的永续合约 DEX，vAMM + 订单簿混合' },
+    ],
+    trends: 'Hyperliquid 生态扩张，Perp DEX 从 DeFi 基元向全栈金融协议演进'
+  },
+  {
+    id: 'prediction-market',
+    term: '预测市场',
+    aliases: ['Prediction Market', '预测平台', 'Polymarket'],
+    category: '应用',
+    definition: '预测市场是允许用户对特定事件结果下注的市场。用户买入某结果的份额，事件发生后持有正确结果份额的用户获得收益。Polymarket 是最大的加密预测市场，覆盖政治、体育、经济等话题，使用 USDC 作为保证金。',
+    developmentStatus: 'Polymarket 在 2024 年美国大选期间爆发，交易量突破数十亿美元。2026 年世界杯和地缘政治事件成为新流量入口。预测市场不再仅是政治押注，扩展到体育、科技、经济等领域。',
+    representativeProjects: [
+      { name: 'Polymarket', symbol: 'POLY', description: '最大的加密预测市场，基于 Polygon' },
+      { name: 'Azuro', symbol: 'AZU', description: '体育预测协议，流动性池模式' },
+      { name: 'SX Network', symbol: 'SX', description: '基于预测市场的 Layer2 解决方案' },
+    ],
+    trends: '重大事件驱动交易量爆发，机构流动性提供者入场，AI 预测与加密预测市场融合'
+  },
+  {
+    id: 'uniswap-hook',
+    term: 'Uniswap Hook',
+    aliases: ['Uniswap v4 Hook', 'Hook 机制', 'Uniswap v4'],
+    category: 'DeFi',
+    definition: 'Uniswap Hook 是 Uniswap v4 引入的交易对自定义插件机制。Hook 允许开发者在流动性池的各个生命周期阶段（创建、交换、费后、取款前等）执行自定义代码。类似智能合约的中间件，可以添加各种交易规则、动态费用、链上预言机等功能。',
+    developmentStatus: 'Uniswap v4 已上线主网，Hook 生态蓬勃发展。开发者正在构建动态手续费 Hook、限价单 Hook、MEV 保护 Hook、DCA Hook 等创新产品。Hook 市场已成为 Uniswap 生态最活跃的创新方向。',
+    representativeProjects: [
+      { name: 'Uniswap', symbol: 'UNI', description: 'Uniswap v4 引入 Hook 机制，DEX 创新的新范式' },
+      { name: 'Oku Trade', symbol: 'OKU', description: '基于 Hook 的专业交易界面' },
+    ],
+    trends: 'Hook 市场标准化，安全审计需求增长，动态费用 Hook 提升 LP 收益'
+  },
+  {
+    id: 'us-pre-ipo',
+    term: '美股Pre-IPO',
+    aliases: ['Pre-IPO 交易', 'Pre-IPO 市场', '私募股权代币化'],
+    category: 'RWA',
+    definition: '美股 Pre-IPO 市场涉及在区块链上交易尚未上市公司的私募股权份额。将 SpaceX、Stripe、OpenAI 等明星独角兽公司的股份代币化，在合规框架下向合格投资者开放。这属于 RWA（现实世界资产）代币化的一个重要分支。',
+    developmentStatus: 'RWA 交易所如 msx.com 已上线数十个 Pre-IPO 代币。约 $40B 的私人独角兽股权正在寻找流动性。代币化降低了传统私募股权的投资门槛，但仍面临监管不确定性和估值挑战。',
+    representativeProjects: [
+      { name: 'msx.com', symbol: 'MSX', description: '去中心化 RWA 交易平台，支持美股 ETF 代币和 Pre-IPO 份额' },
+      { name: 'Backed', symbol: 'BAK', description: '合规代币化资产的发行平台' },
+      { name: 'Securitize', symbol: 'SEC', description: '证券代币化发行和管理平台' },
+    ],
+    trends: '高增长 Pre-IPO 公司代币化受追捧，合规框架逐步完善，二级交易流动性改善'
+  },
 ]
 
 export function searchConcepts(query: string): CryptoConcept[] {

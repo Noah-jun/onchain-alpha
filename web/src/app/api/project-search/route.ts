@@ -4,6 +4,9 @@
 
 import { NextResponse } from 'next/server'
 import { CRYPTO_CONCEPTS, searchConcepts, CryptoConcept } from '@/lib/concepts'
+import { curlGetJSON } from '@/lib/proxyFetch'
+
+export const dynamic = 'force-dynamic'
 
 interface CoinGeckoSearchResult {
   id: string
@@ -53,15 +56,7 @@ interface CoinGeckoCoinDetail {
 async function searchProjects(query: string): Promise<CoinGeckoSearchResult[]> {
   try {
     const url = `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`
-    
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 300 } // 5分钟缓存
-    })
-    
-    if (!res.ok) throw new Error(`CoinGecko search error: ${res.status}`)
-    
-    const data = await res.json()
+    const data = curlGetJSON(url)
     return data.coins || []
   } catch (error) {
     console.error('Failed to search projects:', error)
@@ -73,15 +68,7 @@ async function searchProjects(query: string): Promise<CoinGeckoSearchResult[]> {
 async function getProjectDetails(coinId: string): Promise<CoinGeckoCoinDetail | null> {
   try {
     const url = `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
-    
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 60 } // 1分钟缓存
-    })
-    
-    if (!res.ok) throw new Error(`CoinGecko coin detail error: ${res.status}`)
-    
-    return await res.json()
+    return curlGetJSON(url)
   } catch (error) {
     console.error('Failed to get project details:', error)
     return null
@@ -98,8 +85,10 @@ function formatLinks(coin: CoinGeckoCoinDetail) {
     blockchainSite: ''
   }
   
+  if (!coin.links) return links
+  
   // Website
-  if (coin.links.homepage[0]) {
+  if (coin.links.homepage?.[0]) {
     links.website = coin.links.homepage[0]
   }
   
@@ -119,9 +108,11 @@ function formatLinks(coin: CoinGeckoCoinDetail) {
   }
   
   // Blockchain site
-  const etherscanSite = coin.links.blockchain_site.find(s => s.includes('etherscan'))
-  if (etherscanSite) {
-    links.blockchainSite = etherscanSite
+  if (Array.isArray(coin.links.blockchain_site)) {
+    const etherscanSite = coin.links.blockchain_site.find(s => s?.includes('etherscan'))
+    if (etherscanSite) {
+      links.blockchainSite = etherscanSite
+    }
   }
   
   return links
@@ -159,9 +150,17 @@ export async function GET(request: Request) {
     
     // 获取概念详情
     if (conceptId) {
-      const concept = CRYPTO_CONCEPTS.find(c => c.id === conceptId)
+      const lowerId = conceptId.toLowerCase().trim()
+      let concept = CRYPTO_CONCEPTS.find(c => c.id === lowerId)
       if (!concept) {
-        return NextResponse.json({ error: 'Concept not found' }, { status: 404 })
+        // 模糊匹配：按 term 或 aliases 搜索
+        concept = CRYPTO_CONCEPTS.find(c =>
+          c.term.toLowerCase() === lowerId ||
+          c.aliases.some(a => a.toLowerCase() === lowerId)
+        )
+      }
+      if (!concept) {
+        return NextResponse.json({ error: `未找到概念「${conceptId}」的相关信息` }, { status: 404 })
       }
       return NextResponse.json({
         type: 'concept',
@@ -213,9 +212,9 @@ export async function GET(request: Request) {
         type: 'detail',
         project: {
           id: details.id,
-          symbol: details.symbol.toUpperCase(),
-          name: details.name,
-          image: details.image?.large || details.image?.small || details.image?.thumb,
+          symbol: (details.symbol || '').toUpperCase(),
+          name: details.name || '',
+          image: details.image?.large || details.image?.small || details.image?.thumb || '',
           
           // 基本信息
           website: links.website,
@@ -223,11 +222,11 @@ export async function GET(request: Request) {
           telegram: links.telegram,
           whitepaper: links.whitepaper,
           blockchainSite: links.blockchainSite,
-          genesisDate: details.genesis_date,
+          genesisDate: details.genesis_date || '',
           
           // 项目分类
-          sector: getSector(details.categories),
-          categories: details.categories,
+          sector: getSector(details.categories || []),
+          categories: details.categories || [],
           description: details.description?.en?.slice(0, 500) || '',
           
           // 市场数据
@@ -236,18 +235,18 @@ export async function GET(request: Request) {
           priceChange7d: marketData.price_change_percentage_7d || 0,
           priceChange30d: marketData.price_change_percentage_30d || 0,
           marketCap: marketData.market_cap?.usd || 0,
-          marketCapRank: details.market_cap_rank,
+          marketCapRank: details.market_cap_rank ?? 0,
           volume24h: marketData.total_volume?.usd || 0,
           
           // 代币信息
           circulatingSupply: circulating,
           totalSupply: total,
-          maxSupply: marketData.max_supply,
+          maxSupply: marketData.max_supply ?? undefined,
           circulationRate: circulationRate,
           
           // 社区情绪
-          sentimentUp: details.sentiment_votes_up_percentage,
-          sentimentDown: details.sentiment_votes_down_percentage
+          sentimentUp: details.sentiment_votes_up_percentage ?? 0,
+          sentimentDown: details.sentiment_votes_down_percentage ?? 0,
         },
         timestamp: Date.now()
       })

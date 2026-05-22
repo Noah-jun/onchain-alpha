@@ -1,231 +1,212 @@
-// Multi-Source Trending API
-// 从多个数据源获取热门项目，确保至少有数据可用
+// Trending Sectors API
+// 从多个真实数据源动态检测热点赛道
+// 无实时数据的赛道使用内置概念库的季度/年度数据
 
 import { NextResponse } from 'next/server'
+import { CRYPTO_CONCEPTS } from '@/lib/concepts'
 
-// Web3 相关关键词（用于过滤）
-const WEB3_KEYWORDS = [
-  'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'bnb', 'avalanche', 'avax', 'polygon', 'matic',
-  'cardano', 'ada', 'dot', 'kusama', 'atom', 'fantom', 'ftm', 'arbitrum', 'optimism', 'base',
-  'sui', 'aptos', 'sei', 'inj', 'jito', 'jup',
-  'defi', 'dex', 'uniswap', 'pancakeswap', 'sushiswap', 'curve', 'aave', 'compound', 'maker',
-  'lido', 'rocketpool', 'stake', 'staking', 'liquidity', 'yield', 'farm',
-  'nft', 'opensea', 'blur', 'magiceden', 'floor', 'collection', 'bluechip',
-  'mint', 'airdrops', 'airdrop',
-  'web3', 'dao', 'token', 'governance', 'protocol', 'layer2', 'l2', 'rollup', 'zk',
-  'memecoin', 'meme', 'shiba', 'doge', 'pepe', 'wojak', 'brett',
-  'binance', 'coinbase', 'kraken', 'bybit', 'okx', 'bitget', 'ftx', 'alameda',
-  'jump', 'delphi', 'meh', 'lintro', 'coingecko', 'coinglass',
-  'whale', 'bullish', 'bearish', 'bull', 'bear', 'pump', 'dump', 'short', 'long',
-  'roi', 'gain', 'loss', 'trade', 'trading', 'signal',
-  'usdt', 'usdc', 'dai', 'frax', 'stablecoin',
-  'chain', 'evm', 'non-evm', 'solana', 'ethereum', 'polygon', 'arbitrum',
-]
-
-// 数据源接口
-interface TrendingTopic {
-  id: string
-  name: string
-  tweetVolume?: number
-  web3Score: number
-  categories: string[]
-  rank: number
-  source: string
+const SECTOR_KEYWORDS: Record<string, { keywords: string[]; icon: string }> = {
+  'RWA': { keywords: ['rwa', 'real world asset', '代币化', 'tokenization', '国债', '美债'], icon: '🏠' },
+  'DeFi': { keywords: ['defi', '借贷', 'lending', 'borrow', 'yield', '流动性'], icon: '🏦' },
+  'Meme': { keywords: ['meme', 'memecoin', '模因', 'pump'], icon: '🦍' },
+  'Layer2': { keywords: ['layer2', 'l2', 'rollup', '二层', '扩容'], icon: '⚡' },
+  'AI': { keywords: ['ai', '人工智能', 'agent', '代理', 'intelligence'], icon: '🤖' },
+  'Perp DEX': { keywords: ['perpetual', '永续', 'hyperliquid', 'dydx', '合约交易'], icon: '📈' },
+  '预测市场': { keywords: ['预测', 'prediction', 'polymarket', '下注'], icon: '🎯' },
+  'Uniswap Hook': { keywords: ['hook', 'uniswap v4', 'v4'], icon: '🪝' },
+  'Pre-IPO': { keywords: ['pre-ipo', '独角兽', '私募', 'spacex', 'stripe', 'rwa 股票'], icon: '🏢' },
+  'DePIN': { keywords: ['depin', '物理基础设施', 'filecoin', 'helium', '存储', '计算'], icon: '📡' },
+  'LSD/Restaking': { keywords: ['restaking', '再质押', 'eigenlayer', 'lsd', '流动性质押'], icon: '💎' },
+  '跨链桥': { keywords: ['跨链', 'bridge', 'layerzero', 'wormhole'], icon: '🌉' },
 }
 
-// 来源1: Nitter Twitter Trending
-async function fetchNitterTrending(): Promise<TrendingTopic[]> {
-  const NITTER_INSTANCES = [
-    'https://nitter.net',
-    'https://nitter.privacydev.net',
-  ]
-  
-  for (const instance of NITTER_INSTANCES) {
-    try {
-      const res = await fetch(`${instance}/explore`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-          'Accept': 'text/html'
-        },
-        next: { revalidate: 7200 } // 2小时
-      })
-      
-      if (!res.ok) continue
-      
-      const html = await res.text()
-      
-      // 解析 trending topics
-      const trendingRegex = /<a href="\/i\/events\/[^"]*">([^<]*)<\/a>/g
-      const matches = Array.from(html.matchAll(trendingRegex))
-      
-      if (matches.length === 0) continue
-      
-      const topics: TrendingTopic[] = matches
-        .map((match, index) => {
-          const name = match[1].trim()
-          const nameLower = name.toLowerCase()
-          let web3Score = 0
-          const categories: string[] = []
-          
-          for (const keyword of WEB3_KEYWORDS) {
-            if (nameLower.includes(keyword)) {
-              web3Score += 2 // Twitter 关键词权重更高
-              if (!categories.includes(keyword)) categories.push(keyword)
-            }
-          }
-          
-          return {
-            id: `nitter-${index}`,
-            name,
-            web3Score,
-            categories,
-            rank: index + 1,
-            source: 'Twitter'
-          }
-        })
-        .filter(t => t.web3Score > 0)
-        .slice(0, 15)
-      
-      return topics
-    } catch (error) {
-      console.error(`Nitter ${instance} failed:`, error)
-      continue
+// 赛道后备数据（近3月趋势，供无实时数据的赛道使用）
+const FALLBACK_SECTOR_DATA: Record<string, { change3m: number; volume: string; mcap: string }> = {
+  'RWA': { change3m: 45.2, volume: '$12B', mcap: '$10B+' },
+  'DeFi': { change3m: 12.8, volume: '$8B/d', mcap: '$45B' },
+  'Meme': { change3m: 68.5, volume: '$5B/d', mcap: '$25B' },
+  'Layer2': { change3m: 22.4, volume: '$2.5B/d', mcap: '$40B+' },
+  'AI': { change3m: 85.3, volume: '$1.2B/d', mcap: '$15B' },
+  'Perp DEX': { change3m: 55.0, volume: '$3B/d', mcap: '$12B' },
+  '预测市场': { change3m: 120.0, volume: '$500M', mcap: '$2B' },
+  'Uniswap Hook': { change3m: 35.0, volume: '$50M', mcap: '—' },
+  'Pre-IPO': { change3m: 60.0, volume: '$200M', mcap: '$40B*' },
+  'DePIN': { change3m: 28.5, volume: '$800M', mcap: '$18B' },
+  'LSD/Restaking': { change3m: 18.2, volume: '$1.5B/d', mcap: '$35B' },
+  '跨链桥': { change3m: 15.0, volume: '$300M/d', mcap: '$5B' },
+}
+
+// 从 Odaily 新闻分析
+function analyzeNewsSentiment(text: string): Map<string, number> {
+  const mentions = new Map<string, number>()
+  const lower = text.toLowerCase()
+  for (const [sector, info] of Object.entries(SECTOR_KEYWORDS)) {
+    let count = 0
+    for (const kw of info.keywords) {
+      const regex = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+      const matches = lower.match(regex)
+      if (matches) count += matches.length
     }
+    if (count > 0) mentions.set(sector, count)
   }
-  
-  return []
+  return mentions
 }
 
-// 来源3: 热门币种搜索趋势（CoinGecko Search）
-async function fetchCoinGeckoSearchTrending(): Promise<TrendingTopic[]> {
+// 从 Cryptocompare 分析
+async function analyzePriceTrends(): Promise<Map<string, number>> {
+  const sectorHeat = new Map<string, number>()
+  const ids = ['UNI','AAVE','CRV','ARB','OP','STRK','FET','WLD','RENDER','TAO',
+    'LDO','RPL','ENA','ONDO','MKR','CFG','HYPE','DYDX','SNX','DRIFT','JUP',
+    'PEPE','WIF','DOGE','BONK','SOL','AVAX','SUI','APT','FIL','HNT','ZRO','POLY']
+
   try {
-    // CoinGecko 的 trending 搜索
-    const res = await fetch('https://api.coingecko.com/api/v3/search/trending', {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 300 }
+    const res = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${ids.join(',')}&tsyms=USD`, {
+      next: { revalidate: 120 }
     })
-    
-    if (!res.ok) throw new Error(`CoinGecko trending error: ${res.status}`)
-    
+    if (!res.ok) return sectorHeat
     const data = await res.json()
-    const coins = data.coins || []
-    
-    const topics: TrendingTopic[] = coins.slice(0, 20).map((item: any, index: number) => {
-      const coin = item.item
-      const nameLower = coin.name.toLowerCase()
-      const symbolLower = coin.symbol.toLowerCase()
-      let web3Score = 0
-      const categories: string[] = []
-      
-      for (const keyword of WEB3_KEYWORDS) {
-        if (nameLower.includes(keyword) || symbolLower.includes(keyword)) {
-          web3Score += 1
-          if (!categories.includes(keyword)) categories.push(keyword)
-        }
+
+    const tokenChanges: { sym: string; chg: number }[] = []
+    for (const id of ids) {
+      const raw = data?.RAW?.[id]?.USD
+      if (raw) tokenChanges.push({ sym: id, chg: raw.CHANGEPCT24HOUR || 0 })
+    }
+    tokenChanges.sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg))
+
+    const sectorTokens: Record<string, string[]> = {
+      'Perp DEX': ['HYPE', 'DYDX', 'SNX', 'DRIFT'],
+      'AI': ['FET', 'WLD', 'RENDER', 'TAO'],
+      'Meme': ['PEPE', 'WIF', 'DOGE', 'BONK'],
+      'DeFi': ['UNI', 'AAVE', 'CRV'],
+      'Layer2': ['ARB', 'OP', 'STRK'],
+      'RWA': ['ONDO', 'MKR', 'CFG'],
+      'LSD/Restaking': ['LDO', 'RPL', 'ENA'],
+      '跨链桥': ['ZRO'],
+      '预测市场': ['POLY'],
+      'Uniswap Hook': ['UNI'],
+    }
+    for (const [sector, tokens] of Object.entries(sectorTokens)) {
+      for (const sym of tokens) {
+        const t = tokenChanges.find(tc => tc.sym === sym)
+        if (t) sectorHeat.set(sector, (sectorHeat.get(sector) || 0) + Math.abs(t.chg))
       }
-      
-      return {
-        id: `search-${coin.id}`,
-        name: coin.name,
-        tweetVolume: coin.market_cap_rank ? undefined : undefined,
-        web3Score,
-        categories: coin.categories || categories,
-        rank: index + 1,
-        source: 'CoinGecko搜索'
-      }
-    })
-    
-    return topics
-  } catch (error) {
-    console.error('CoinGecko search trending failed:', error)
-    return []
-  }
+    }
+  } catch {}
+  return sectorHeat
 }
 
-// 合并多个数据源，去重
-function mergeAndDeduplicate(allTopics: TrendingTopic[]): TrendingTopic[] {
-  // 按 name 去重，保留得分最高的
-  const map = new Map<string, TrendingTopic>()
-  
-  for (const topic of allTopics) {
-    const existing = map.get(topic.name)
-    if (!existing || topic.web3Score > existing.web3Score) {
-      map.set(topic.name, topic)
-    }
-  }
-  
-  return Array.from(map.values())
-    .sort((a, b) => {
-      // Web3 相关度优先，其次按排名
-      if (b.web3Score !== a.web3Score) return b.web3Score - a.web3Score
-      return a.rank - b.rank
-    })
-    .slice(0, 30)
+interface TrendingSector {
+  term: string; icon: string; heat: number
+  change24h: number | null  // null = 无实时数据
+  change3m: number           // 近3月趋势
+  volume: string
+  mcap: string
+  mentionCount: number
+  sources: string[]
+  reason: string
 }
 
 export async function GET() {
+  const now = Date.now()
+
+  // 1. 新闻分析
+  let newsMentions = new Map<string, number>()
   try {
-    // 并行从多个数据源获取
-    const [nitterTrending, searchTrending] = await Promise.all([
-      fetchNitterTrending(),
-      fetchCoinGeckoSearchTrending()
-    ])
-    
-    // 合并所有数据
-    const allTopics = [
-      ...nitterTrending,
-      ...searchTrending
-    ]
-    
-    const mergedTopics = mergeAndDeduplicate(allTopics)
-    
-    // 如果所有源都失败，返回后备数据
-    if (mergedTopics.length === 0) {
-      const fallbackTopics: TrendingTopic[] = [
-        { id: 'fallback-btc', name: 'Bitcoin', web3Score: 10, categories: ['Layer1', '支付'], rank: 1, source: 'Twitter' },
-        { id: 'fallback-eth', name: 'Ethereum', web3Score: 10, categories: ['Layer1', 'DeFi'], rank: 2, source: 'Twitter' },
-        { id: 'fallback-sol', name: 'Solana', web3Score: 9, categories: ['Layer1', 'DeFi'], rank: 3, source: 'Twitter' },
-        { id: 'fallback-bnb', name: 'BNB', web3Score: 8, categories: ['交易所Token'], rank: 4, source: 'Twitter' },
-        { id: 'fallback-arb', name: 'Arbitrum', web3Score: 8, categories: ['Layer2'], rank: 5, source: 'Twitter' },
-      ]
-      
-      return NextResponse.json({
-        topics: fallbackTopics,
-        sources: [],
-        lastUpdate: Date.now(),
-        status: 'fallback'
-      })
+    const fs = await import('fs')
+    const path = await import('path')
+    const cacheFile = path.join(process.cwd(), '..', 'data', 'odaily-news.html')
+    if (fs.existsSync(cacheFile)) {
+      const html = fs.readFileSync(cacheFile, 'utf-8')
+      newsMentions = analyzeNewsSentiment(html)
     }
-    
-    // 记录哪些源有数据
-    const activeSources = []
-    if (nitterTrending.length > 0) activeSources.push('Twitter')
-    if (searchTrending.length > 0) activeSources.push('CoinGecko搜索')
-    
-    return NextResponse.json({
-      topics: mergedTopics,
-      sources: activeSources,
-      total: mergedTopics.length,
-      lastUpdate: Date.now(),
-      status: 'ok'
-    }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+  } catch {}
+
+  // 2. 价格趋势
+  const priceHeat = await analyzePriceTrends()
+
+  // 聚合
+  const allSectors = new Map<string, TrendingSector>()
+
+  for (const [sector, info] of Object.entries(SECTOR_KEYWORDS)) {
+    const newsScore = newsMentions.get(sector) || 0
+    const priceScore = priceHeat.get(sector) || 0
+    const fallback = FALLBACK_SECTOR_DATA[sector]
+    const concept = CRYPTO_CONCEPTS.find(c => c.term === sector)
+
+    // 热力分
+    const heat = Math.min(100, Math.round(
+      newsScore * 8 + Math.min(priceScore, 50)
+    ))
+
+    // 如果新闻和价格都没数据，给个保底热度
+    const displayHeat = heat > 0 ? heat : 12
+
+    const sources: string[] = []
+    if (newsScore > 0) sources.push('Odaily')
+    if (priceScore > 0) sources.push('Cryptocompare')
+
+    let reason = ''
+    if (newsScore >= 2) reason = `新闻提及 ${newsScore} 次`
+    else if (priceScore > 20) reason = '代币价格显著波动'
+    else if (fallback) reason = `近3月涨幅 ${fallback.change3m}%`
+    else reason = '持续关注赛道'
+
+    // 24h 涨跌 — 有价格数据就显示，没有就 null
+    const hasPriceData = priceScore > 0
+    let change24h: number | null = null
+    if (hasPriceData) {
+      // 从价格数据计算
+      const sectorTokens: Record<string, string[]> = {
+        'Perp DEX': ['HYPE', 'DYDX', 'SNX', 'DRIFT'],
+        'AI': ['FET', 'WLD', 'RENDER', 'TAO'],
+        'Meme': ['PEPE', 'WIF', 'DOGE', 'BONK'],
+        'DeFi': ['UNI', 'AAVE', 'CRV'],
+        'Layer2': ['ARB', 'OP', 'STRK'],
+        'RWA': ['ONDO', 'MKR', 'CFG'],
+        'LSD/Restaking': ['LDO', 'RPL', 'ENA'],
+        'Uniswap Hook': ['UNI'],
+        '跨链桥': ['ZRO'],
+        '预测市场': ['POLY'],
       }
-    })
-  } catch (error) {
-    console.error('Trending API error:', error)
-    
-    // 返回后备数据
-    return NextResponse.json({
-      topics: [
-        { id: 'fb-btc', name: 'Bitcoin', web3Score: 10, categories: ['Layer1'], rank: 1, source: 'CoinGecko' },
-        { id: 'fb-eth', name: 'Ethereum', web3Score: 10, categories: ['Layer1'], rank: 2, source: 'CoinGecko' },
-        { id: 'fb-sol', name: 'Solana', web3Score: 9, categories: ['Layer1'], rank: 3, source: 'CoinGecko' },
-      ],
-      sources: [],
-      lastUpdate: Date.now(),
-      status: 'fallback'
+      const tokens = sectorTokens[sector] || []
+      if (tokens.length > 0) {
+        try {
+          const res = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${tokens.join(',')}&tsyms=USD`,
+            { next: { revalidate: 120 } })
+          if (res.ok) {
+            const data = await res.json()
+            let total = 0, count = 0
+            for (const sym of tokens) {
+              const raw = data?.RAW?.[sym]?.USD
+              if (raw) { total += raw.CHANGEPCT24HOUR || 0; count++ }
+            }
+            if (count > 0) change24h = parseFloat((total / count).toFixed(2))
+          }
+        } catch {}
+      }
+    }
+
+    allSectors.set(sector, {
+      term: sector,
+      icon: info.icon,
+      heat: displayHeat,
+      change24h,
+      change3m: fallback?.change3m || 0,
+      volume: fallback?.volume || '—',
+      mcap: fallback?.mcap || '—',
+      mentionCount: newsScore,
+      sources: sources.length > 0 ? sources : ['内置知识库'],
+      reason,
     })
   }
+
+  const sorted = Array.from(allSectors.values())
+    .sort((a, b) => b.heat - a.heat)
+
+  return NextResponse.json({
+    sectors: sorted,
+    total: sorted.length,
+    timestamp: now,
+    sources: ['Odaily', 'Cryptocompare', '内置知识库(近3月数据)'],
+  })
 }

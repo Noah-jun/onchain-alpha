@@ -1,1 +1,0 @@
-{"kind":"FETCH","data":{"headers":{"alt-svc":"h3=\":443\"; ma=2592000","content-length":"0","date":"Fri, 17 Apr 2026 02:55:06 GMT","server":"Caddy"},"body":"","status":200,"url":"https://nitter.net/search?f=tweets&q=web3%20OR%20crypto%20OR%20bitcoin%20OR%20ethereum%20OR%20defi%20OR%20nft&q=%40elonmusk"},"revalidate":7200,"tags":[]}

@@ -67,8 +67,8 @@ function getFallbackStockData() {
   // 周末关闭
   if (day === 0 || day === 6) {
     return {
-      nasdaq: { price: 15420.5, change: 0.82, status: 'closed' as const },
-      sp500: { price: 5123.8, change: 0.45, status: 'closed' as const }
+      nasdaq: { price: 19285.42, change: 0.65, status: 'closed' as const },
+      sp500: { price: 6110.78, change: 0.38, status: 'closed' as const }
     }
   }
   
@@ -88,8 +88,8 @@ function getFallbackStockData() {
   }
   
   return {
-    nasdaq: { price: 15420.5, change: 0.82, status: nasdaqStatus },
-    sp500: { price: 5123.8, change: 0.45, status: sp500Status }
+    nasdaq: { price: 19285.42, change: 0.65, status: nasdaqStatus },
+    sp500: { price: 6110.78, change: 0.38, status: sp500Status }
   }
 }
 

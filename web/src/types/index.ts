@@ -1,5 +1,5 @@
 // 信号类型
-export type SignalType = 'anomaly' | 'whale' | 'funding' | 'liquidation'
+export type SignalType = 'anomaly' | 'whale' | 'funding' | 'liquidation' | 'binance-alpha' | 'newlisting'
 
 // 风险等级
 export type RiskLevel = 'high' | 'medium' | 'low'
@@ -22,12 +22,13 @@ export interface AnomalySignal extends BaseSignal {
   symbol: string
   icon: string
   price: number
-  change5m: number
-  change24h: number
-  volumeChange: number
+  change5m: number      // 实际为 24h 涨跌幅
+  change24h: number      // 振幅（高-低波动范围）
+  volumeChange: number   // 成交量变化
   volume: number
   marketCap: number
   description: string
+  amplitude: number      // 24h 振幅百分比
   tags: ('whale_inflow' | 'sector_link' | 'isolated')[]
 }
 
@@ -48,6 +49,9 @@ export interface FundingSignal extends BaseSignal {
   exchange: string
   symbol: string
   rate: number
+  maxRate24h?: number
+  minRate24h?: number
+  abnormal?: boolean
   nextFundingTime: number
   oiChange: number
   longShortRatio: number
@@ -65,8 +69,33 @@ export interface LiquidationSignal extends BaseSignal {
   txHash: string
 }
 
+// 币安Alpha新上币信号
+export interface BinanceAlphaSignal extends BaseSignal {
+  type: 'binance-alpha'
+  symbol: string
+  name: string
+  price: number
+  priceChange24h: number
+  volume24h: number
+  marketCap: number
+  announcementUrl: string
+  description: string
+}
+
+// 新上币信号
+export interface NewListingSignal extends BaseSignal {
+  type: 'newlisting'
+  symbol: string
+  exchange: 'Binance' | 'OKX' | 'Hyperliquid'
+  marketType: 'spot' | 'futures'
+  listedAt: number
+  announcementUrl: string
+  description: string
+  isHot?: boolean
+}
+
 // 联合类型
-export type Signal = AnomalySignal | WhaleSignal | FundingSignal | LiquidationSignal
+export type Signal = AnomalySignal | WhaleSignal | FundingSignal | LiquidationSignal | BinanceAlphaSignal | NewListingSignal
 
 // 市场数据
 export interface MarketData {

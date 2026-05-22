@@ -42,7 +42,7 @@ export async function GET() {
   try {
     if (fs.existsSync(CACHE_FILE)) {
       const cached = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'))
-      if (Date.now() - (cached.generatedAt || 0) < 3600000 && cached.sections?.length > 0) {
+      if (Date.now() - (cached.generatedAt || 0) < 24 * 60 * 60 * 1000 && cached.sections?.length > 0) {
         return NextResponse.json(cached)
       }
     }

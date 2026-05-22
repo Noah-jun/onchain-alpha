@@ -33,7 +33,7 @@ export async function GET() {
     if (fs.existsSync(CACHE_FILE)) {
       const cached = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'))
       const age = Date.now() - (cached.timestamp || 0)
-      if (age < 12 * 60 * 60 * 1000 && cached.sectors?.length > 0) {
+      if (age < 24 * 60 * 60 * 1000 && cached.sectors?.length > 0) {
         return NextResponse.json(cached)
       }
     }
@@ -98,7 +98,7 @@ ${newsHtml.slice(0, 3000)}
     const output = {
       sectors: (result.sectors || []).slice(0, 12),
       generatedAt: Date.now(),
-      expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
       source: 'DeepSeek AI analysis based on real market data',
     }
 

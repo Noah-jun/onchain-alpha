@@ -1,7 +1,5 @@
 'use client'
 
-
-
 import React, { useState, useEffect } from 'react'
 
 import Header from '@/components/Header'
@@ -17,8 +15,6 @@ import { MarketData, Signal, SignalType } from '@/types'
 import { CryptoConcept } from '@/lib/concepts'
 
 import { Search, ExternalLink, Globe, MessageCircle, FileText, TrendingUp, Users, DollarSign, PieChart, Clock, Star, X, BookOpen, TrendingDown, ArrowRight } from 'lucide-react'
-
-
 
 // 项目搜索结果
 
@@ -36,8 +32,6 @@ interface SearchResult {
 
 }
 
-
-
 // 概念搜索结果
 
 interface ConceptResult {
@@ -53,8 +47,6 @@ interface ConceptResult {
   definition: string
 
 }
-
-
 
 // 项目详情
 
@@ -114,8 +106,6 @@ interface ProjectDetail {
 
 }
 
-
-
 // 热门话题接口
 
 interface TrendingTopic {
@@ -136,8 +126,6 @@ interface TrendingTopic {
 
 }
 
-
-
 // 搜索组件
 
 function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: string) => void; initialQuery?: string }) {
@@ -152,8 +140,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
   const [conceptResults, setConceptResults] = useState<ConceptResult[]>([])
 
-
-
   // 当 initialQuery 改变时自动搜索
 
   useEffect(() => {
@@ -166,8 +152,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
   }, [initialQuery])
 
-
-
   useEffect(() => {
 
     if (!query.trim()) {
@@ -179,8 +163,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
       return
 
     }
-
-
 
     const timer = setTimeout(async () => {
 
@@ -210,13 +192,9 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
     }, 500) // 500ms 防抖
 
-
-
     return () => clearTimeout(timer)
 
   }, [query])
-
-
 
   return (
 
@@ -260,8 +238,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
       </div>
 
-
-
       {/* 搜索结果 */}
 
       {isSearching && (
@@ -276,8 +252,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
       )}
 
-
-
       {!isSearching && hasSearched && results.length === 0 && conceptResults.length === 0 && (
 
         <div className="text-center py-12 text-slate-400">
@@ -291,8 +265,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
         </div>
 
       )}
-
-
 
       {/* 概念搜索结果 */}
 
@@ -356,8 +328,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
       )}
 
-
-
       {!isSearching && results.length > 0 && (
 
         <div className="space-y-2">
@@ -414,8 +384,6 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
       )}
 
-
-
       {!hasSearched && (
 
         <div className="text-center py-12 text-slate-400">
@@ -464,426 +432,227 @@ function ProjectSearch({ onSelect, initialQuery = '' }: { onSelect: (coinId: str
 
 }
 
-
-
 // 热门话题组件
 
 function TrendingTopics({ onSelect, onSearch }: { onSelect: (coinName: string) => void; onSearch: (query: string) => void }) {
-
-  const [topics, setTopics] = useState<TrendingTopic[]>([])
-
-  const [sources, setSources] = useState<string[]>([])
-
+  const [items, setItems] = useState<any[]>([])
+  const [current, setCurrent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
-
-  const [lastUpdate, setLastUpdate] = useState<string>('')
-
-  const [activeCategory, setActiveCategory] = useState<string>('all')
-
-  const [status, setStatus] = useState<'ok' | 'fallback'>('ok')
-
-  const [searchQuery, setSearchQuery] = useState('')
-
-
+  const [selectedIntel, setSelectedIntel] = useState<any>(null)
 
   useEffect(() => {
-
-    const fetchTrending = async () => {
-
-      try {
-
-        const res = await fetch('/api/trending', { cache: 'no-store' })
-
-        const data = await res.json()
-
-        
-
-        setTopics(data.topics || [])
-
-        setSources(data.sources || [])
-
-        setStatus(data.status || 'ok')
-
-        if (data.lastUpdate) {
-
-          setLastUpdate(new Date(data.lastUpdate).toLocaleString('zh-CN'))
-
-        }
-
-      } catch (error) {
-
-        console.error('Failed to fetch trending:', error)
-
-      } finally {
-
-        setIsLoading(false)
-
-      }
-
-    }
-
-
-
-    fetchTrending()
-
+    Promise.all([
+      fetch('/api/hourly-intel?mode=list').then(r => r.json()).catch(() => ({ items: [] })),
+      fetch('/api/hourly-intel').then(r => r.json()).catch(() => null),
+    ]).then(([listData, currentData]) => {
+      setItems(listData.items || [])
+      setCurrent(currentData)
+      setIsLoading(false)
+    }).catch(() => setIsLoading(false))
   }, [])
 
+  // 关闭右侧面板
+  const closePanel = () => setSelectedIntel(null)
 
-
-  const handleSearch = (e: React.FormEvent) => {
-
-    e.preventDefault()
-
-    if (searchQuery.trim()) {
-
-      onSearch(searchQuery.trim())
-
-    }
-
-  }
-
-
-
-  // 获取所有分类
-
-  const allCategories = Array.from(new Set(topics.flatMap(t => t.categories))).slice(0, 10)
-
-  
-
-  // 过滤话题
-
-  const filteredTopics = activeCategory === 'all' 
-
-    ? topics 
-
-    : topics.filter(t => t.categories.includes(activeCategory))
-
-
-
-  if (isLoading) {
+  // 渲染右侧情报详情面板
+  const IntelDetailPanel = ({ data, onClose }: { data: any; onClose: () => void }) => {
+    const r = data
+    const fmt = (n: number) => n >= 0 ? '+' + n.toFixed(1) + '%' : n.toFixed(1) + '%'
 
     return (
-
-      <div className="p-6 space-y-4">
-
-        <div className="flex items-center justify-between mb-4">
-
-          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-
-            <TrendingUp className="w-5 h-5 text-indigo-600" />
-
-            热门话题
-
-          </h2>
-
+      <div className="fixed right-0 top-0 h-full w-[420px] bg-white border-l border-slate-200 shadow-2xl z-50 overflow-y-auto animate-slide-in">
+        {/* 头部 */}
+        <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between z-10">
+          <div>
+            <p className="font-bold text-slate-800">📡 {r.hour || ''} 情报</p>
+            <p className="text-[10px] text-slate-500">{r.date} | {r.period}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 text-lg">&times;</button>
         </div>
 
-        {[1, 2, 3, 4, 5].map(i => (
+        <div className="p-5 space-y-4">
 
-          <div key={i} className="bg-white rounded-xl p-4 border border-slate-200 animate-pulse">
-
-            <div className="h-5 bg-slate-200 rounded w-1/3 mb-2" />
-
-            <div className="h-4 bg-slate-200 rounded w-1/2" />
-
+          {/* 摘要 */}
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4">
+            <div className="flex justify-between text-xs">
+              <span>新增 <strong>{r.summary?.totalItems || '?'}</strong></span>
+              <span>高优先 <strong className="text-amber-600">{r.summary?.highPriority || '?'}</strong></span>
+              {r.summary?.topSymbol && <span>热门 <strong className="text-indigo-600">{r.summary.topSymbol}</strong></span>}
+            </div>
           </div>
 
-        ))}
+          {/* 价格异动 */}
+          {r.priceAnomalies?.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs font-bold text-red-500 mb-3">🚨 价格异动</p>
+              <div className="space-y-3">
+                {r.priceAnomalies.map((a: any, i: number) => (
+                  <div key={i} className="text-xs border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-800">{a.symbol}</span>
+                      <span className={a.change24h >= 0 ? 'text-emerald-600 font-mono' : 'text-red-500 font-mono'}>{fmt(a.change24h)} (24h)</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
+                      {a.oi && <span>OI {a.oi}</span>}
+                      {a.volumeRatio && <span>量{a.volumeRatio}</span>}
+                      {a.tags?.length > 0 && a.tags.map((t: string, j: number) => <span key={j} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">{t}</span>)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
+          {/* 重点信息 */}
+          {r.keyInfo?.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs font-bold text-indigo-600 mb-3">⭐ 重点信息</p>
+              <div className="space-y-3">
+                {r.keyInfo.map((k: any, i: number) => (
+                  <div key={i} className="text-xs">
+                    <p className="text-slate-800 font-medium leading-relaxed">{k.rank}. {k.title}</p>
+                    {k.tags?.length > 0 && <p className="text-[10px] text-slate-400 mt-0.5">{k.tags.map((t: string) => '[' + t + ']').join(' ')}</p>}
+                    {k.sources?.length > 0 && <div className="text-[10px] text-indigo-500 mt-0.5">{k.sources.map((s: any, j: number) => s.url ? <a key={j} href={s.url} target="_blank" className="hover:underline mr-2">{s.name}</a> : <span key={j} className="mr-2">{s.name}</span>)}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 研判分析 */}
+          {r.analysis?.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs font-bold text-amber-600 mb-3">🧠 研判与分析</p>
+              <div className="space-y-2">
+                {r.analysis.map((a: any, i: number) => (
+                  <div key={i} className="text-xs flex items-start gap-2">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 shrink-0 mt-0.5">{a.type || '分析'}</span>
+                    <div>
+                      <span className="text-slate-700">{a.content}</span>
+                      {a.source?.url && <a href={a.source.url} target="_blank" className="text-indigo-500 ml-1 hover:underline text-[10px]">[{a.source.name}]</a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Watchlist */}
+          {r.watchlist?.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs font-bold text-emerald-600 mb-3">👀 Watchlist</p>
+              <div className="space-y-2">
+                {r.watchlist.map((w: any, i: number) => (
+                  <div key={i} className="text-xs text-slate-700 flex items-start gap-2">
+                    <span className="mt-0.5">•</span>
+                    <div>
+                      <span>{w.title}</span>
+                      {w.tags?.length > 0 && <span className="text-slate-400 ml-1">{w.tags.map((t: string) => '[' + t + ']').join(' ')}</span>}
+                      {w.source?.url && <a href={w.source.url} target="_blank" className="text-indigo-500 ml-1 hover:underline text-[10px]">[{w.source.name}]</a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 叙事温度 */}
+          {r.narrativeTemp?.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <p className="text-xs font-bold text-purple-600 mb-3">🧩 叙事温度</p>
+              <div className="space-y-2">
+                {r.narrativeTemp.map((n: any, i: number) => (
+                  <div key={i} className="text-xs text-slate-700 flex items-start gap-2">
+                    <span className={'font-medium shrink-0 ' + (n.trend === '升温' ? 'text-red-500' : 'text-blue-500')}>[{n.trend}]</span>
+                    <div>
+                      <span>{n.title}</span>
+                      {n.source?.url && <a href={n.source.url} target="_blank" className="text-indigo-500 ml-1 hover:underline text-[10px]">[{n.source.name}]</a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 数据源 */}
+          <div className="bg-slate-50 rounded-xl p-3 text-[10px] text-slate-400">
+            <p>数据来源：{(r.sources || ['Cryptocompare', 'Hyperliquid', 'Odaily', 'DeepSeek AI']).join(' · ')}</p>
+            <p className="mt-0.5">生成时间：{new Date(r.generatedAt).toLocaleString('zh-CN')}</p>
+          </div>
+        </div>
       </div>
-
     )
-
   }
 
-
+  if (isLoading) return <div className="p-6 space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-20 bg-slate-200 rounded-xl animate-pulse" />)}</div>
 
   return (
-
-    <div className="p-6">
-
-      {/* 头部 */}
-
-      <div className="flex items-center justify-between mb-4">
-
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-
-          <TrendingUp className="w-5 h-5 text-indigo-600" />
-
-          热门话题
-
-        </h2>
-
-        <div className="flex items-center gap-2">
-
-          {sources.length > 0 && (
-
-            <span className="text-xs text-slate-400">
-
-              数据源: {sources.join(', ')}
-
-            </span>
-
-          )}
-
-          {status === 'fallback' && (
-
-            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">
-
-              后备数据
-
-            </span>
-
-          )}
-
-        </div>
-
-      </div>
-
-
-
-      {/* 搜索框 */}
-
-      <form onSubmit={handleSearch} className="mb-6">
-
-        <div className="relative">
-
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-
-          <input
-
-            type="text"
-
-            value={searchQuery}
-
-            onChange={(e) => setSearchQuery(e.target.value)}
-
-            placeholder="搜索项目..."
-
-            className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-
-          />
-
-        </div>
-
-      </form>
-
-
-
-      {/* 分类过滤 */}
-
-      {allCategories.length > 0 && (
-
-        <div className="flex flex-wrap gap-2 mb-4">
-
-          <button
-
-            onClick={() => setActiveCategory('all')}
-
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-
-              activeCategory === 'all' 
-
-                ? 'bg-indigo-100 text-indigo-700' 
-
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-
-            }`}
-
-          >
-
-            全部
-
-          </button>
-
-          {allCategories.map(cat => (
-
-            <button
-
-              key={cat}
-
-              onClick={() => setActiveCategory(cat)}
-
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-
-                activeCategory === cat 
-
-                  ? 'bg-indigo-100 text-indigo-700' 
-
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-
-              }`}
-
-            >
-
-              {cat}
-
-            </button>
-
-          ))}
-
-        </div>
-
-      )}
-
-
-
-      {/* 话题列表 */}
-
-      {filteredTopics.length === 0 ? (
-
-        <div className="text-center py-12 text-slate-400">
-
-          <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
-
-          <p className="text-sm">暂无热门话题</p>
-
-          <p className="text-xs mt-1">正在从各数据源获取...</p>
-
-        </div>
-
-      ) : (
-
-        <div className="space-y-2">
-
-          {filteredTopics.map((topic, index) => (
-
-            <div 
-
-              key={topic.id}
-
-              onClick={() => onSelect(topic.name)}
-
-              className="bg-white rounded-xl p-4 border border-slate-200 hover:border-indigo-300 transition-colors cursor-pointer"
-
-            >
-
-              <div className="flex items-start gap-3">
-
-                {/* 排名 */}
-
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
-
-                  index < 3 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'
-
-                }`}>
-
-                  {index + 1}
-
-                </div>
-
-                
-
-                {/* 内容 */}
-
-                <div className="flex-1 min-w-0">
-
-                  <div className="flex items-center gap-2 mb-1">
-
-                    <span className="font-semibold text-slate-800">{topic.name}</span>
-
-                    {topic.web3Score >= 5 && (
-
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-medium">
-
-                        高相关
-
-                      </span>
-
-                    )}
-
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px]">
-
-                      {topic.source}
-
-                    </span>
-
+    <div className="relative h-full">
+      {/* 主体列表 */}
+      <div className="p-6">
+        {/* 当前小时情报横幅 */}
+        {current && <div onClick={() => setSelectedIntel(current)} className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 mb-4 cursor-pointer hover:from-indigo-600 hover:to-purple-700 transition-all">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-white font-bold text-lg">📡 {current.hour || '最新'} 情报</p>
+            <span className="px-2 py-0.5 bg-white/20 rounded-full text-white text-[10px]">最新</span>
+          </div>
+          <p className="text-indigo-100 text-xs">{current.date} | {current.period}</p>
+          <div className="flex gap-3 mt-2">
+            <span className="text-indigo-100 text-[10px]">新增 {(current.summary?.totalItems || 0)}</span>
+            <span className="text-amber-200 text-[10px]">高优先 {(current.summary?.highPriority || 0)}</span>
+            {current.summary?.topSymbol && <span className="text-emerald-200 text-[10px]">热门: {current.summary.topSymbol}</span>}
+          </div>
+        </div>}
+
+        {/* 历史情报列表 */}
+        {items.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">🕐 历史情报</p>
+            <div className="space-y-2">
+              {items.slice(0, 24).map((item: any, i: number) => (
+                <div key={item.hourKey || i} onClick={() => setSelectedIntel(item)} className="bg-white rounded-xl border border-slate-200 p-4 hover:border-indigo-300 cursor-pointer transition-all">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-800">📡 {item.hourLabel || '整点情报'}</span>
+                    <span className="text-[10px] text-slate-400">{item.date}</span>
                   </div>
-
-                  
-
-                  {/* 标签 */}
-
-                  <div className="flex flex-wrap gap-1">
-
-                    {topic.categories.slice(0, 4).map(cat => (
-
-                      <span 
-
-                        key={cat}
-
-                        className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]"
-
-                      >
-
-                        {cat}
-
-                      </span>
-
-                    ))}
-
+                  <div className="flex gap-2 mt-1 text-[10px] text-slate-500">
+                    <span>新增 {(item.summary?.totalItems || 0)}</span>
+                    <span>高优先 {(item.summary?.highPriority || 0)}</span>
                   </div>
-
                 </div>
-
-                
-
-                {/* 热度 */}
-
-                <div className="text-right">
-
-                  <div className="flex items-center gap-1 text-slate-500">
-
-                    <TrendingUp className="w-3 h-3" />
-
-                    {topic.tweetVolume ? (
-
-                      <span className="text-xs">{(topic.tweetVolume / 1000000).toFixed(1)}M</span>
-
-                    ) : (
-
-                      <span className="text-xs">TOP {topic.rank}</span>
-
-                    )}
-
-                  </div>
-
-                </div>
-
-              </div>
-
+              ))}
             </div>
+          </div>
+        )}
 
-          ))}
-
-        </div>
-
-      )}
-
-
-
-      {/* 提示 */}
-
-      <div className="mt-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
-
-        <p className="text-xs text-amber-800">
-
-          💡 点击话题或搜索框查看项目详情 · 数据来源：Twitter + CoinGecko搜索（多源聚合）
-
-        </p>
-
+        {!current && items.length === 0 && (
+          <div className="text-center py-12 text-slate-400">
+            <span className="text-4xl mb-3 block">⏰</span>
+            <p className="text-sm">暂无情报数据</p>
+            <p className="text-xs mt-1">AI 正在生成当前小时情报...</p>
+          </div>
+        )}
       </div>
 
+      {/* 右侧滑出面板 */}
+      {selectedIntel && <IntelDetailPanel data={selectedIntel} onClose={closePanel} />}
+
+      {/* 遮罩层 */}
+      {selectedIntel && <div className="fixed inset-0 bg-black/20 z-40" onClick={closePanel} />}
+
+      {/* 动画样式 */}
+      <style jsx>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
-
   )
-
 }
-
-
-
-// 概念详情组件
-
 function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string; onBack: () => void; onProjectSelect: (coinId: string) => void }) {
 
   const [concept, setConcept] = useState<CryptoConcept | null>(null)
@@ -891,8 +660,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
   const [isLoading, setIsLoading] = useState(true)
 
   const [error, setError] = useState('')
-
-
 
   useEffect(() => {
 
@@ -934,8 +701,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
 
   }, [conceptId])
 
-
-
   if (isLoading) {
 
     return (
@@ -960,8 +725,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
 
   }
 
-
-
   if (error || !concept) {
 
     return (
@@ -981,8 +744,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
     )
 
   }
-
-
 
   return (
 
@@ -1034,8 +795,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
 
       </div>
 
-
-
       {/* 什么是xxx */}
 
       <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
@@ -1052,8 +811,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
 
       </div>
 
-
-
       {/* 发展状况 */}
 
       <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
@@ -1069,8 +826,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
         <p className="text-sm text-slate-600 leading-relaxed">{concept.developmentStatus}</p>
 
       </div>
-
-
 
       {/* 关键指标 */}
 
@@ -1106,8 +861,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
 
       )}
 
-
-
       {/* 最新趋势 */}
 
       {concept.trends && (
@@ -1127,8 +880,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
         </div>
 
       )}
-
-
 
       {/* 代表项目 */}
 
@@ -1196,8 +947,6 @@ function ConceptView({ conceptId, onBack, onProjectSelect }: { conceptId: string
 
 }
 
-
-
 // 项目详情组件
 
 function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => void }) {
@@ -1207,8 +956,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
   const [isLoading, setIsLoading] = useState(true)
 
   const [error, setError] = useState('')
-
-
 
   useEffect(() => {
 
@@ -1246,13 +993,9 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
     }
 
-
-
     fetchProject()
 
   }, [coinId])
-
-
 
   if (isLoading) {
 
@@ -1278,8 +1021,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
   }
 
-
-
   if (error || !project) {
 
     return (
@@ -1300,8 +1041,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
   }
 
-
-
   const formatCurrency = (num: number) => {
 
     if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`
@@ -1316,8 +1055,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
   }
 
-
-
   const formatNumber = (num: number) => {
 
     if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`
@@ -1331,8 +1068,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
     return num.toLocaleString()
 
   }
-
-
 
   return (
 
@@ -1386,8 +1121,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
       </div>
 
-
-
       {/* 价格信息 */}
 
       <div className="bg-slate-50 rounded-xl p-4 mb-4">
@@ -1421,8 +1154,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
         </div>
 
       </div>
-
-
 
       {/* 链接 */}
 
@@ -1478,8 +1209,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
       </div>
 
-
-
       {/* 基本信息 */}
 
       <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
@@ -1527,8 +1256,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
         </div>
 
       </div>
-
-
 
       {/* 市场数据 */}
 
@@ -1594,8 +1321,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
       </div>
 
-
-
       {/* 社区情绪 */}
 
       <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -1633,8 +1358,6 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
   )
 
 }
-
-
 
 function ProjectQuickView({ symbol, onBack }: { symbol: string; onBack: () => void }) {
   // 实时数据（毫秒级加载）
@@ -1848,7 +1571,7 @@ function ProjectQuickView({ symbol, onBack }: { symbol: string; onBack: () => vo
           ) : deepExpanded && deep ? (
             <><span>🔼 收起深度研究</span></>
           ) : (
-            <><span>🤖 AI 深度投研分析</span><span className="text-xs opacity-75">15-20s</span></>
+            <><span>🤖 AI深度解读</span><span className="text-xs opacity-75">15-20s</span></>
           )}
         </button>
       </div>
@@ -1875,13 +1598,9 @@ function ProjectQuickView({ symbol, onBack }: { symbol: string; onBack: () => vo
   )
 }
 
-
-
 function AiReportView({ report, news, sources }: { report: any; news?: string[]; sources?: string[] }) {
 
   if (!report?.summary?.overview?.oneLiner) return null
-
-
 
   const s = report.summary
 
@@ -1898,8 +1617,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
   const risk = report.risk
 
   const conc = report.conclusion
-
-
 
   const ratingColors: Record<string, string> = {
 
@@ -1925,8 +1642,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
   }
 
-
-
   const ScoreBar = ({ label, score, maxScore = 10 }: { label: string; score?: number; maxScore?: number }) => {
 
     if (score == null) return null
@@ -1939,15 +1654,11 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
   }
 
-
-
   const InfoBlock = ({ title, children }: { title?: string; children: React.ReactNode }) => (
 
     <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">{title && <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{title}</h3>}{children}</div>
 
   )
-
-
 
   const RiskyBlock = ({ children }: { children: React.ReactNode }) => (
 
@@ -1955,21 +1666,17 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
   )
 
-
-
   return (
 
     <div>
 
       <div className="flex items-center gap-2 mb-4">
 
-        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">🤖 AI 深度投研报告</span>
+        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">🤖 AI深度报告</span>
 
         <span className="text-[10px] text-slate-400">· 约15-20s生成</span>
 
       </div>
-
-
 
       {/* 评级摘要 */}
 
@@ -2003,8 +1710,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
       </InfoBlock>
 
-
-
       {/* 1. 项目概览 */}
 
       <InfoBlock title="📋 1. 项目概览">
@@ -2033,8 +1738,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
       </InfoBlock>
 
-
-
       {/* 2. Narrative */}
 
       <InfoBlock title="🎯 2. Narrative 与市场定位">
@@ -2054,8 +1757,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
         </div>
 
       </InfoBlock>
-
-
 
       {/* 3. 产品与技术 */}
 
@@ -2083,8 +1784,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
       </InfoBlock>
 
-
-
       {/* 4. Tokenomics */}
 
       <InfoBlock title="🪙 4. Tokenomics 与价值捕获">
@@ -2106,8 +1805,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
         </div>
 
       </InfoBlock>
-
-
 
       {/* 5. 链上数据 */}
 
@@ -2132,8 +1829,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
         {oc.dataAssessment && <div className="bg-slate-50 rounded-lg p-3 text-xs"><span className="text-slate-500 font-medium block mb-0.5">数据真实性</span><span className="text-slate-700">{oc.dataAssessment}</span></div>}
 
       </InfoBlock>
-
-
 
       {/* 6. 团队 */}
 
@@ -2181,8 +1876,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
       </InfoBlock>
 
-
-
       {/* 7. 风险 */}
 
       <InfoBlock title="⚠️ 7. 风险分析">
@@ -2204,8 +1897,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
         </div>
 
       </InfoBlock>
-
-
 
       {/* 8. 投资结论 */}
 
@@ -2249,8 +1940,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
 
       </div>
 
-
-
       {/* 新闻 */}
 
       {news && news.length > 0 && (
@@ -2268,12 +1957,6 @@ function AiReportView({ report, news, sources }: { report: any; news?: string[];
   )
 
 }
-
-
-
-
-
-
 
 const fmtUSD = (v: any) => {
 
@@ -2309,8 +1992,6 @@ const fmtNum = (v: any) => {
 
 }
 
-
-
 // 指标卡片组件
 
 function MetricCard({ label, value, subtitle }: { label: string; value: any; subtitle?: any }) {
@@ -2334,7 +2015,138 @@ function MetricCard({ label, value, subtitle }: { label: string; value: any; sub
 }
 
 
+// ===== 热门赛道看板 =====
+function SectorDashboard({ onSelect }: { onSelect: (id: string) => void }) {
+  const [sectors, setSectors] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  useEffect(() => {
+    fetch('/api/ai-sectors').then(r => r.json()).then(d => {
+      if (d.sectors?.length > 0) setSectors(d.sectors)
+      else fetch('/api/sectors').then(r2 => r2.json()).then(d2 => setSectors(d2.sectors || [])).catch(() => {})
+      setIsLoading(false)
+    }).catch(() => fetch('/api/sectors').then(r => r.json()).then(d => setSectors(d.sectors || [])).catch(() => setIsLoading(false)))
+  }, [])
+  if (isLoading) return <div className="p-6 animate-pulse space-y-3">{[1,2,3,4,5,6].map(i => <div key={i} className="h-16 bg-slate-200 rounded-xl" />)}</div>
+  const isAi = sectors.length > 0 && 'rank' in sectors[0]
+  const sectorNameToConceptId = (name: string): string | null => {
+    const m: Record<string, string> = { 'rwa':'rwa','defi':'defi','layer2':'layer2','restaking':'restaking','lsd':'liquid-staking','memecoin':'memecoin','meme':'memecoin','ai':'ai-crypto','depin':'depin','dex':'dex','perp dex':'perp-dex','永续合约':'perp-dex','跨链桥':'bridge','预测市场':'prediction-market','uniswap hook':'uniswap-hook','pre-ipo':'us-pre-ipo','模块化':'modular','ordinals':'ordinals','机构':'institutional','yield':'yield' }
+    return m[name.toLowerCase().trim()] || null
+  }
+  return <div className="p-6">
+    {isAi && <div className="text-[10px] text-slate-400 mb-4">AI 每24h全网检索分析 · 数据来源: CoinGecko + Odaily + OnChain Alpha</div>}
+    <div className="space-y-2">
+      {sectors.map((s: any, i: number) => {
+        const id = s.id || (s.name || '').toLowerCase().replace(/\s+/g, '-')
+        return <div key={id} onClick={() => {
+          if (isAi) {
+            const n = s.name || ''; const cid = sectorNameToConceptId(n)
+            onSelect(cid ? `concept:${cid}` : `sector:${n}`)
+          } else onSelect(`concept:${id}`)
+        }} className="bg-white rounded-xl border border-slate-200 p-4 hover:border-indigo-300 cursor-pointer transition-all">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-semibold text-slate-800">{s.name || s.term}</span>
+            <span className="text-sm font-mono text-indigo-600">{(s.heat || s.change24h || 0) > 0 ? '+' : ''}{(s.heat || s.change24h || 0)}</span>
+          </div>
+          {isAi && s.reason && <p className="text-xs text-slate-500">{s.reason}</p>}
+          {!isAi && s.tokens?.length > 0 && <div className="flex flex-wrap gap-1 mt-2">{s.tokens.slice(0,4).map((t: string, j: number) => <span key={j} className="px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-600">{t}</span>)}</div>}
+        </div>
+      })}
+    </div>
+  </div>
+}
 
+// ===== 热门项目 =====
+function HotProjects({ onSelect }: { onSelect: (id: string) => void }) {
+  const [projects, setProjects] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  useEffect(() => {
+    // AI 24h 热度分析 -> 优先，失败降级到本地算法
+    fetch('/api/ai-intelligence').then(r => r.json()).then(d => {
+      if (d.hotTopics?.length > 0) {
+        setProjects(d.hotTopics.map((t: any, i: number) => ({
+          id: t.id || i,
+          rank: i + 1,
+          symbol: t.symbol || t.name?.split(' ')[0] || '',
+          sector: t.sector || '热门',
+          price: t.price || 0,
+          change24h: t.change24h || 0,
+          heat: t.heat || t.score || 50,
+          reason: t.reason || t.summary?.slice(0, 30) || '',
+        })))
+        setIsLoading(false)
+      } else {
+        fetch('/api/projects').then(r2 => r2.json()).then(d2 => { setProjects(d2.hotProjects || []); setIsLoading(false) }).catch(() => setIsLoading(false))
+      }
+    }).catch(() => fetch('/api/projects').then(r => r.json()).then(d => { setProjects(d.hotProjects || []); setIsLoading(false) }).catch(() => setIsLoading(false)))
+  }, [])
+  if (isLoading) return <div className="p-6 animate-pulse space-y-3">{[1,2,3,4,5].map(i => <div key={i} className="h-16 bg-slate-200 rounded-xl" />)}</div>
+  return <div className="p-6">
+    <div className="flex items-center justify-between mb-4">
+      <span className="text-sm font-semibold text-slate-800">AI 24h 热点项目</span>
+      <span className="text-[10px] text-slate-400">AI 每24h全网检索分析</span>
+    </div>
+    {projects.length === 0 && <p className="text-sm text-slate-400 text-center py-8">暂无项目数据</p>}
+    <div className="grid grid-cols-1 gap-2">
+      {projects.slice(0, 30).map((p: any) => (
+        <div key={p.id} onClick={() => onSelect(p.symbol.toLowerCase())} className="bg-white rounded-xl p-4 border border-slate-200 hover:border-indigo-300 cursor-pointer transition-all flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 w-5">#{p.rank || '-'}</span>
+            <div>
+              <span className="text-sm font-medium text-slate-800">{p.symbol}</span>
+              <span className="text-[10px] text-slate-400 ml-1">{p.sector}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={"text-sm font-mono " + (p.change24h >= 0 ? 'text-emerald-600' : 'text-red-500')}>{p.change24h >= 0 ? '+' : ''}{p.change24h?.toFixed(2)}%</span>
+            <span className="text-xs font-medium text-indigo-600">{p.heat}</span>
+            {p.reason && <span className="text-[10px] text-slate-400 hidden sm:block">{p.reason}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+}
+
+// ===== AI 投研分析 =====
+function AIResearch({ onSelect }: { onSelect: (id: string) => void }) {
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [error, setError] = useState('')
+  const quickActions = ['HYPE', 'ASTER', 'WLD', 'SOL', 'ONDO', 'AAVE', 'PEPE']
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!query.trim()) return
+    setLoading(true); setError(''); setResult(null)
+    try {
+      const res = await fetch('/api/ai-research', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: query.trim() }) })
+      const data = await res.json()
+      if (data.error) setError(data.error); else setResult(data)
+    } catch (e: any) { setError(e.message) }
+    finally { setLoading(false) }
+  }
+
+  return <div className="p-6">
+    <form onSubmit={handleSubmit} className="mb-4">
+      <div className="relative">
+        <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="输入项目名或问题，如：分析 HYPE" className="w-full pl-4 pr-24 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-indigo-500 text-sm" />
+        <button type="submit" disabled={loading || !query.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">{loading ? '分析中...' : 'AI 分析'}</button>
+      </div>
+    </form>
+    <div className="flex flex-wrap gap-2 mb-6">
+      <span className="text-[10px] text-slate-400 self-center">快捷:</span>
+      {quickActions.map(sym => <button key={sym} onClick={() => { setQuery(sym); setTimeout(() => document.querySelector('form')?.dispatchEvent(new Event('submit')), 100) }} className="px-3 py-1.5 bg-slate-100 rounded-lg text-xs text-slate-600 hover:bg-indigo-50">{sym}</button>)}
+    </div>
+    {loading && <div className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse"><div className="h-5 bg-slate-200 rounded w-1/3 mb-3" /><div className="h-3 bg-slate-200 rounded w-2/3 mb-2" /><div className="h-3 bg-slate-200 rounded w-1/2 mb-2" /><div className="h-20 bg-slate-200 rounded" /><p className="text-xs text-slate-400 mt-3">正在检索数据并生成分析报告...</p></div>}
+    {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">❌ {error}</div>}
+    {result && <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3"><div className="flex items-center justify-between"><h2 className="text-white font-semibold text-sm">🤖 {result.project} 投研分析</h2><span className="text-indigo-200 text-[10px]">AI 生成</span></div></div>
+      <div className="p-5"><div className="prose prose-sm max-w-none text-slate-700 leading-relaxed whitespace-pre-wrap">{result.report}</div><div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-400">数据来源: Cryptocompare · DeFiLlama · Odaily · Hyperliquid</div></div>
+    </div>}
+    {!result && !loading && !error && <div className="text-center py-12 text-slate-400"><span className="text-4xl mb-3 block">🤖</span><p className="text-sm">输入项目名，AI 将生成专业投研分析报告</p><p className="text-xs mt-1">基于实时数据 + RAG 知识库</p></div>}
+  </div>
+}
 
 
 // 主页面组件
@@ -2353,13 +2165,11 @@ export default function Home() {
 
   const [isLoading, setIsLoading] = useState(true)
 
-  const [researchView, setResearchView] = useState<'trending' | 'search' | 'detail'>('trending')
+  const [researchView, setResearchView] = useState<'trending' | 'search' | 'detail' | 'sectors' | 'projects'>('sectors')
 
   const [selectedCoinId, setSelectedCoinId] = useState<string | null>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
-
-
 
   useEffect(() => {
 
@@ -2391,8 +2201,6 @@ export default function Home() {
 
     }
 
-
-
     loadData()
 
     const interval = setInterval(loadData, 60000)
@@ -2400,8 +2208,6 @@ export default function Home() {
     return () => clearInterval(interval)
 
   }, [])
-
-
 
   const handleProjectSelect = (coinId: string) => {
 
@@ -2411,8 +2217,6 @@ export default function Home() {
 
   }
 
-
-
   const handleTrendingSelect = (name: string) => {
 
     setSearchQuery(name)
@@ -2420,8 +2224,6 @@ export default function Home() {
     setResearchView('search')
 
   }
-
-
 
   const handleBackToTrending = () => {
 
@@ -2433,8 +2235,6 @@ export default function Home() {
 
   }
 
-
-
   // 计算过滤后的信号
 
   const filteredSignals = activeFilters.length === 0
@@ -2442,8 +2242,6 @@ export default function Home() {
     ? signals
 
     : signals.filter((s: any) => activeFilters.includes(s.type))
-
-
 
   return (
 
@@ -2462,8 +2260,6 @@ export default function Home() {
         showMarketBar={activeTab === 'signals'}
 
       />
-
-
 
       {activeTab === 'signals' && (
 
@@ -2529,8 +2325,6 @@ export default function Home() {
 
             </div>
 
-
-
             <div className="flex-1 overflow-y-auto p-6 space-y-3 scrollbar-thin bg-slate-50/50">
 
               {filteredSignals.length === 0 && !isLoading && (
@@ -2560,8 +2354,6 @@ export default function Home() {
                 />
 
               ))}
-
-
 
               {filteredSignals.length === 0 && isLoading && (
 
@@ -2597,8 +2389,6 @@ export default function Home() {
 
           </div>
 
-
-
           <div className="w-96 bg-white flex flex-col">
 
             <SignalDetail signal={selectedSignal} />
@@ -2609,11 +2399,28 @@ export default function Home() {
 
       )}
 
-
-
       {activeTab === 'research' && (
 
-        <main className="flex-1 flex bg-slate-50">
+        <main className="flex-1 flex flex-col bg-slate-50">
+
+          {/* 研究子导航 */}
+          <div className="bg-white border-b border-slate-200 px-6 py-2 flex items-center gap-1 overflow-x-auto">
+            {[
+              { k: 'sectors', l: '热门赛道', i: '📊' },
+              { k: 'projects', l: '热点项目', i: '🌟' },
+              { k: 'trending', l: '小时情报', i: '⏰' },
+              { k: 'search', l: '搜索', i: '🔍' },
+            ].map(tab => (
+              <button
+                key={tab.k}
+                onClick={() => { setResearchView(tab.k as any); setSelectedCoinId(null); setSearchQuery('') }}
+                className={"flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap " + (researchView === tab.k ? 'bg-indigo-100 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-100')}
+              >
+                <span>{tab.i}</span>
+                <span>{tab.l}</span>
+              </button>
+            ))}
+          </div>
 
           <div className="flex-1 overflow-y-auto">
 
@@ -2629,13 +2436,23 @@ export default function Home() {
 
             )}
 
+            {researchView === 'sectors' && <SectorDashboard onSelect={(id) => { setSelectedCoinId(id); setResearchView('detail') }} />}
+
+            {researchView === 'projects' && <HotProjects onSelect={(id) => { setSelectedCoinId(id); setResearchView('detail') }} />}
+
+
+
             {researchView === 'detail' && selectedCoinId && (
 
-              selectedCoinId.startsWith('concept:') 
+              selectedCoinId.startsWith('concept:')
 
-                ? <ConceptView conceptId={selectedCoinId.replace('concept:', '')} onBack={handleBackToTrending} onProjectSelect={handleProjectSelect} />
+                ? <ConceptView conceptId={selectedCoinId.replace('concept:', '')} onBack={() => setResearchView('sectors')} onProjectSelect={handleProjectSelect} />
 
-                : <ProjectDetailView coinId={selectedCoinId} onBack={handleBackToTrending} />
+                : selectedCoinId.startsWith('project:')
+
+                  ? <ProjectQuickView symbol={selectedCoinId.replace('project:', '')} onBack={() => setResearchView('projects')} />
+
+                : <ProjectDetailView coinId={selectedCoinId} onBack={() => setResearchView('sectors')} />
 
             )}
 
@@ -2650,8 +2467,6 @@ export default function Home() {
   )
 
 }
-
-
 
 // 辅助函数：获取所有信号
 

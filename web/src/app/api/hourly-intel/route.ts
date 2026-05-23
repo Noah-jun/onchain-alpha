@@ -268,13 +268,40 @@ function parseWizzIntel(raw: string, hour: string, date: string): any {
   return result
 }
 
-export async function GET() {
-  // 读缓存
+// 读取过去 hours 小时内的所有缓存文件
+function readRecentCaches(hours: number): any[] {
+  const items: any[] = []
+  const now = Date.now()
+  for (let h = 0; h < hours; h++) {
+    const d = new Date(now - h * 60 * 60 * 1000)
+    const hourKey = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}`
+    const fp = path.join(CACHE_DIR, `${hourKey}.json`)
+    try {
+      if (fs.existsSync(fp)) {
+        const data = JSON.parse(fs.readFileSync(fp, 'utf-8'))
+        items.push({
+          ...data,
+          hourKey,
+          hourLabel: data.hour || `${d.getHours()}:00`,
+        })
+      }
+    } catch {}
+  }
+  return items.sort((a, b) => (b.hourKey || '').localeCompare(a.hourKey || ''))
+}
+
+export async function GET(request: Request) {
+  // mode=list → 返回过去 24h 的历史列表
+  const mode = new URL(request.url).searchParams.get('mode') || ''
+  if (mode === 'list') {
+    return NextResponse.json({ items: readRecentCaches(24) })
+  }
+
+  // 默认 mode → 返回当前小时数据
   const cached = readCache()
   if (cached) return NextResponse.json(cached)
 
   try {
-    // 抓取 Wizz 小时情报
     const wizz = await fetchWizzIntel()
     if (wizz?.raw) {
       const output = parseWizzIntel(wizz.raw, wizz.hour, wizz.date)
@@ -282,7 +309,6 @@ export async function GET() {
       return NextResponse.json(output)
     }
 
-    // 抓取失败 → 返回空数据
     console.error('[Hourly Intel] Failed to fetch Wizz intel')
     return NextResponse.json({
       hour: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),

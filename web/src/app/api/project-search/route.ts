@@ -55,6 +55,20 @@ async function getProjectDetails(coinId: string): Promise<CoinGeckoCoinDetail | 
   }
 }
 
+// 通过 symbol 查找项目（兜底：symbol 不是 CoinGecko ID 时使用）
+async function getProjectDetailsBySymbol(symbol: string): Promise<CoinGeckoCoinDetail | null> {
+  try {
+    const searchData = await externalFetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symbol)}`)
+    if (!searchData?.coins?.length) return null
+    // 取 symbol 完全匹配的第一个结果
+    const match = searchData.coins.find((c: any) => c.symbol?.toUpperCase() === symbol.toUpperCase())
+    if (!match?.id) return null
+    return getProjectDetails(match.id)
+  } catch {
+    return null
+  }
+}
+
 // 格式化链接
 function formatLinks(coin: CoinGeckoCoinDetail) {
   const links = { website: '', twitter: '', telegram: '', whitepaper: '', blockchainSite: '' }
@@ -125,7 +139,11 @@ export async function GET(request: Request) {
 
     // 获取项目详情
     if (coinId) {
-      const details = await getProjectDetails(coinId)
+      // 先按 CoinGecko ID 查找，失败则按 symbol 兜底搜索
+      let details = await getProjectDetails(coinId)
+      if (!details) {
+        details = await getProjectDetailsBySymbol(coinId)
+      }
       if (!details) {
         return NextResponse.json({ error: 'Project not found' }, { status: 404 })
       }

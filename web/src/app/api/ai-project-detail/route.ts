@@ -7,14 +7,15 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { internalFetch, isVercel, readDataFile } from '@/lib/serverEnv'
 
 export const dynamic = 'force-dynamic'
 
 const API_KEY = process.env.DEEPSEEK_API_KEY || ''
-const CACHE_DIR = path.join(process.cwd(), '..', 'data', 'ai-project-cache')
+const CACHE_DIR = path.join(process.cwd(), 'data', 'ai-project-cache')
 
 function cachePath(symbol: string, suffix = ''): string {
-  if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true })
+  if (!isVercel && !fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true })
   return path.join(CACHE_DIR, `${symbol.toLowerCase()}${suffix}.json`)
 }
 
@@ -27,8 +28,9 @@ function readCache(path: string, ttlMs: number): any {
   return null
 }
 
-function writeCache(path: string, data: any) {
-  try { fs.writeFileSync(path, JSON.stringify({ ...data, cachedAt: Date.now() })) } catch {}
+function writeCache(p: string, data: any) {
+  if (isVercel) return // Vercel 只读跳过
+  try { fs.writeFileSync(p, JSON.stringify({ ...data, cachedAt: Date.now() })) } catch {}
 }
 
 async function getRealtimeData(symbol: string) {
@@ -38,7 +40,7 @@ async function getRealtimeData(symbol: string) {
     if (res.ok) { const raw = (await res.json())?.RAW?.[symbol]?.USD; if (raw) { r.price = raw.PRICE ?? null; r.change24h = raw.CHANGEPCT24HOUR ?? null; r.volume24h = raw.VOLUME24HOURTO ?? raw.VOLUME24HOUR ?? null } }
   } catch {}
   try {
-    const protocols = JSON.parse(fs.readFileSync(path.join(process.cwd(), '..', 'data', 'defillama-protocols.json'), 'utf-8'))
+    const protocols = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'defillama-protocols.json'), 'utf-8'))
     for (const p of protocols) { if (p.symbol?.toUpperCase() === symbol || p.gecko_id?.toUpperCase() === symbol) { r.tvl = p.tvl || null; r.tvlChange7d = p.change_7d || null; break } }
   } catch {}
   return r
@@ -46,7 +48,7 @@ async function getRealtimeData(symbol: string) {
 
 function getNews(symbol: string): string[] {
   try {
-    const html = fs.readFileSync(path.join(process.cwd(), '..', 'data', 'odaily-news.html'), 'utf-8')
+    const html = fs.readFileSync(path.join(process.cwd(), 'data', 'odaily-news.html'), 'utf-8')
     const regex = new RegExp('\\[([^\\]]*' + symbol.toLowerCase() + '[^\\]]*)\\]', 'gi')
     const m = html.match(regex)
     return m ? m.slice(0, 5).map(x => x.replace(/[[\]]/g, '')) : []
@@ -178,7 +180,7 @@ export async function GET(request: Request) {
   const [realtime, news, localData] = await Promise.all([
     getRealtimeData(symbol),
     Promise.resolve(getNews(symbol)),
-    (async () => { try { const r = await fetch(`http://localhost:3001/api/project-detail?symbol=${symbol}`, { signal: AbortSignal.timeout(4000) }); return r.ok ? await r.json() : null } catch { return null } })(),
+    internalFetch(`/api/project-detail?symbol=${symbol}`),
   ])
 
   const name = localData?.name || symbol

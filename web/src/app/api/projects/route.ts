@@ -100,7 +100,7 @@ export async function GET() {
   try {
     const fs = await import('fs')
     const path = await import('path')
-    const cacheFile = path.join(process.cwd(), '..', 'data', 'odaily-news.html')
+    const cacheFile = path.join(process.cwd(), 'data', 'odaily-news.html')
     if (fs.existsSync(cacheFile)) {
       odailyText = fs.readFileSync(cacheFile, 'utf-8').toLowerCase()
       for (const sym of allSymbols) {
@@ -151,7 +151,7 @@ export async function GET() {
   try {
     const fs = await import('fs')
     const path = await import('path')
-    const cacheFile = path.join(process.cwd(), '..', 'data', 'coingecko-trending.json')
+    const cacheFile = path.join(process.cwd(), 'data', 'coingecko-trending.json')
     if (fs.existsSync(cacheFile)) {
       const raw = fs.readFileSync(cacheFile, 'utf-8')
       const data = JSON.parse(raw)

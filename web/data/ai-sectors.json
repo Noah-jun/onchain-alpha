@@ -1,0 +1,97 @@
+{
+  "sectors": [
+    {
+      "rank": 1,
+      "name": "AI",
+      "heat": 100,
+      "reason": "数据来源Odaily显示热度为100，且近期AI与区块链结合概念持续升温，众多项目涌现。",
+      "narrative": "AI与区块链深度融合，去中心化AI算力和模型市场成为焦点。",
+      "keyProjects": [
+        "Render Network",
+        "Bittensor"
+      ],
+      "trend": "stable",
+      "dataSources": [
+        "Odaily"
+      ]
+    },
+    {
+      "rank": 2,
+      "name": "DeFi",
+      "heat": 100,
+      "reason": "数据来源Odaily显示热度为100，DeFi作为加密基础赛道，持续有创新和资金流入。",
+      "narrative": "DeFi 2.0和收益优化策略推动生态发展。",
+      "keyProjects": [
+        "Uniswap",
+        "Aave"
+      ],
+      "trend": "stable",
+      "dataSources": [
+        "Odaily"
+      ]
+    },
+    {
+      "rank": 3,
+      "name": "Layer2",
+      "heat": 100,
+      "reason": "数据来源Odaily显示热度为100，以太坊扩容需求强劲，Layer2解决方案持续爆发。",
+      "narrative": "Layer2生态成熟，主流Rollup方案竞争白热化。",
+      "keyProjects": [
+        "Arbitrum",
+        "Optimism"
+      ],
+      "trend": "stable",
+      "dataSources": [
+        "Odaily"
+      ]
+    },
+    {
+      "rank": 4,
+      "name": "Perp DEX",
+      "heat": 100,
+      "reason": "数据来源Odaily显示热度为100，去中心化永续合约交易所交易量创新高。",
+      "narrative": "链上衍生品交易成为新增长点，永续合约DEX崛起。",
+      "keyProjects": [
+        "dYdX",
+        "GMX"
+      ],
+      "trend": "stable",
+      "dataSources": [
+        "Odaily"
+      ]
+    },
+    {
+      "rank": 5,
+      "name": "预测市场",
+      "heat": 100,
+      "reason": "数据来源Odaily显示热度为100，预测市场因政治事件和体育赛事热度提升。",
+      "narrative": "预测市场平台用户活跃，事件驱动型投注需求旺盛。",
+      "keyProjects": [
+        "Polymarket",
+        "Augur"
+      ],
+      "trend": "stable",
+      "dataSources": [
+        "Odaily"
+      ]
+    },
+    {
+      "rank": 6,
+      "name": "Pre-IPO",
+      "heat": 96,
+      "reason": "数据来源Odaily显示热度为96，Pre-IPO代币化项目吸引传统资本关注。",
+      "narrative": "真实世界资产代币化(RWA)延伸至Pre-IPO股权。",
+      "keyProjects": [
+        "Republic Note",
+        "Securitize"
+      ],
+      "trend": "stable",
+      "dataSources": [
+        "Odaily"
+      ]
+    }
+  ],
+  "generatedAt": 1779456878235,
+  "expiresAt": 1779543278235,
+  "source": "DeepSeek AI analysis based on real market data"
+}

@@ -114,7 +114,7 @@ export async function GET() {
   try {
     const fs = await import('fs')
     const path = await import('path')
-    const cacheFile = path.join(process.cwd(), '..', 'data', 'odaily-news.html')
+    const cacheFile = path.join(process.cwd(), 'data', 'odaily-news.html')
     if (fs.existsSync(cacheFile)) {
       const html = fs.readFileSync(cacheFile, 'utf-8')
       newsMentions = analyzeNewsSentiment(html)

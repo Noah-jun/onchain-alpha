@@ -1,13 +1,13 @@
 // AI Market Intelligence API
 // 模拟「2点情报」风格的市场情报日报
-// 每1小时由前端触发更新（或手动刷新）
 
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { internalFetch, isVercel, readDataFile } from '@/lib/serverEnv'
 
 const API_KEY = process.env.DEEPSEEK_API_KEY || ''
-const CACHE_FILE = path.join(process.cwd(), '..', 'data', 'ai-intelligence.json')
+const CACHE_FILE = path.join(process.cwd(), 'data', 'ai-intelligence.json')
 
 async function callDeepSeekJSON(messages: any[]) {
   const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -21,32 +21,28 @@ async function callDeepSeekJSON(messages: any[]) {
 
 async function fetchNews(): Promise<string> {
   try {
-    return fs.readFileSync(path.join(process.cwd(), '..', 'data', 'odaily-news.html'), 'utf-8').slice(0, 8000)
+    return fs.readFileSync(path.join(process.cwd(), 'data', 'odaily-news.html'), 'utf-8').slice(0, 8000)
   } catch { return '' }
 }
 
 async function fetchData() {
-  const [anomaliesRes, fundingRes, trendingRes] = await Promise.all([
-    fetch('http://localhost:3001/api/anomalies').then(r => r.json()).catch(() => ({ signals: [] })),
-    fetch('http://localhost:3001/api/funding-rates').then(r => r.json()).catch(() => ({ signals: [] })),
-    (async () => {
-      try { return JSON.parse(fs.readFileSync(path.join(process.cwd(), '..', 'data', 'coingecko-trending.json'), 'utf-8')) }
-      catch { return { coins: [] } }
-    })(),
+  const [anomaliesRes, fundingRes] = await Promise.all([
+    internalFetch('/api/anomalies'),
+    internalFetch('/api/funding-rates'),
   ])
-  return { anomalies: anomaliesRes.signals || [], funding: fundingRes.signals || [], trending: trendingRes }
+  return {
+    anomalies: anomaliesRes?.signals || [],
+    funding: fundingRes?.signals || [],
+    trending: readDataFile('coingecko-trending.json') || { coins: [] },
+  }
 }
 
 export async function GET() {
-  // 检查缓存（1小时内有效）
-  try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const cached = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'))
-      if (Date.now() - (cached.generatedAt || 0) < 24 * 60 * 60 * 1000 && cached.sections?.length > 0) {
-        return NextResponse.json(cached)
-      }
-    }
-  } catch {}
+  // 检查缓存（24小时内有效）
+  const cached = readDataFile('ai-intelligence.json')
+  if (cached?.sections?.length > 0 && Date.now() - (cached.generatedAt || 0) < 24 * 60 * 60 * 1000) {
+    return NextResponse.json(cached)
+  }
 
   try {
     const newsHtml = await fetchNews()
@@ -119,7 +115,10 @@ ${newsHtml}
       rawNews: [],
     }
 
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(output, null, 2))
+    // Vercel 上跳过文件写入（只读）
+    if (!isVercel) {
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(output, null, 2))
+    }
     return NextResponse.json(output)
   } catch (error: any) {
     return NextResponse.json({ error: String(error), generatedAt: Date.now() })

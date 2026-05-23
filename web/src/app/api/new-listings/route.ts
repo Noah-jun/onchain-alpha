@@ -19,7 +19,7 @@ const EXCHANGE_MAP: Record<string, { keywords: string[]; label: string }> = {
   'Hyperliquid': { keywords: ['hyperliquid','hl'], label: 'Hyperliquid' },
 }
 
-const CACHE_FILE = path.join(process.cwd(), '..', 'data', 'odaily-news.html')
+const CACHE_FILE = path.join(process.cwd(), 'data', 'odaily-news.html')
 
 function parseOdailyHTML(html: string): { time: string; title: string }[] {
   const items: { time: string; title: string }[] = []

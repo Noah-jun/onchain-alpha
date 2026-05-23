@@ -3,11 +3,10 @@
 // 所有数据源基于缓存文件，确保稳定性和速度
 
 import { NextResponse } from 'next/server'
+import { getProjectInfo } from '@/lib/projectsDB'
+import { DATA_DIR, fetchTokenPrices, isVercel } from '@/lib/serverEnv'
 import fs from 'fs'
 import path from 'path'
-import { getProjectInfo } from '@/lib/projectsDB'
-
-const DATA_DIR = path.join(process.cwd(), '..', 'data')
 
 function readJSON(filename: string): any {
   try {
@@ -65,16 +64,11 @@ export async function GET(request: Request) {
   // 5. Cryptocompare 价格
   let price = 0, change24h = 0, volume = 0
   try {
-    const res = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbol}&tsyms=USD`, {
-      next: { revalidate: 120 }
-    })
-    if (res.ok) {
-      const raw = (await res.json())?.RAW?.[symbol]?.USD
-      if (raw) {
-        price = raw.PRICE ?? 0
-        change24h = raw.CHANGEPCT24HOUR ?? 0
-        volume = raw.VOLUME24HOURTO ?? raw.VOLUME24HOUR ?? 0
-      }
+    const prices = await fetchTokenPrices([symbol])
+    const p = prices.get(symbol)
+    if (p) {
+      price = p.price
+      change24h = p.change24h
     }
   } catch {}
 

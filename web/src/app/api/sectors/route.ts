@@ -1,10 +1,10 @@
 // Hot Sectors API
 // 数据源：Trending API（从 Odaily / Cryptocompare / Hyperliquid 动态检测）
 // 辅以内置概念库的知识内容
-// 不再硬编码赛道列表
 
 import { NextResponse } from 'next/server'
 import { CRYPTO_CONCEPTS } from '@/lib/concepts'
+import { fetchTokenPrices, isVercel, internalFetch, readDataText } from '@/lib/serverEnv'
 
 // 赛道 → 代表代币
 const SECTOR_TOKENS: Record<string, string[]> = {
@@ -23,36 +23,30 @@ const SECTOR_TOKENS: Record<string, string[]> = {
   '跨链桥': ['ZRO'],
 }
 
-async function fetchTokenPrices(symbols: string[]): Promise<Map<string, { price: number; change24h: number }>> {
-  const result = new Map()
-  if (!symbols.length) return result
-  try {
-    const res = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbols.join(',')}&tsyms=USD`, {
-      next: { revalidate: 120 }
-    })
-    if (!res.ok) throw new Error(`API ${res.status}`)
-    const data = await res.json()
-    for (const sym of symbols) {
-      const raw = data?.RAW?.[sym]?.USD
-      if (raw) result.set(sym, { price: raw.PRICE ?? 0, change24h: raw.CHANGEPCT24HOUR ?? 0 })
-    }
-  } catch {}
-  return result
-}
-
 export async function GET() {
   // 读取 trending 动态数据
   let trendingData: any[] = []
-  try {
-    const fs = await import('fs')
-    const path = await import('path')
-    // 获取 trending 数据（直接请求本地 API）
-    const trendingRes = await fetch('http://localhost:3001/api/trending', { next: { revalidate: 120 } })
-    if (trendingRes.ok) {
-      const data = await trendingRes.json()
-      trendingData = data.sectors || []
+  // 本地：调用 trending API；Vercel：直接从缓存文件读取
+  const localTrending = await internalFetch('/api/trending')
+  if (localTrending?.sectors) {
+    trendingData = localTrending.sectors
+  } else {
+    // 尝试从 ai-sectors.json 缓存读取（Vercel 上用）
+    const aiSectors = readDataText('ai-sectors.json')
+    if (aiSectors) {
+      try {
+        const parsed = JSON.parse(aiSectors)
+        trendingData = (parsed.sectors || []).map((s: any) => ({
+          term: s.name,
+          icon: '📊',
+          heat: s.heat || 50,
+          reason: s.reason || '',
+          sources: ['AI Analysis'],
+          change24h: null,
+        }))
+      } catch {}
     }
-  } catch {}
+  }
 
   // 获取价格数据
   const allTokens = [...new Set(Object.values(SECTOR_TOKENS).flat())]

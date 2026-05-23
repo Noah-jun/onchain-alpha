@@ -2,6 +2,7 @@
 // RAG pipeline: 检索知识库 → 构造 Prompt → 调用 DeepSeek → 结构化输出
 
 import { NextResponse } from 'next/server'
+import { internalFetch } from '@/lib/serverEnv'
 
 const API_KEY = process.env.DEEPSEEK_API_KEY || ''
 
@@ -35,12 +36,10 @@ async function callDeepSeek(messages: any[], responseFormat?: any) {
 async function fetchContext(project: string): Promise<string> {
   const parts: string[] = []
 
-  // 1. 项目详情
-  try {
-    const detailRes = await fetch(`http://localhost:3001/api/project-detail?symbol=${project}`, { cache: 'no-store' })
-    if (detailRes.ok) {
-      const detail = await detailRes.json()
-      parts.push(`【项目基本信息】
+  // 1. 项目详情（本地调用 API，Vercel 上从缓存文件读取）
+  const detail = await internalFetch(`/api/project-detail?symbol=${project}`)
+  if (detail) {
+    parts.push(`【项目基本信息】
 名称: ${detail.name || project}
 赛道: ${detail.sector || '未知'}
 代币状态: ${detail.tgeStatus || '未知'}
@@ -53,39 +52,35 @@ TVL: ${detail.tvl ? '$' + (detail.tvl / 1e9).toFixed(2) + 'B' : 'N/A'}
 官网: ${detail.website || 'N/A'}
 Twitter: ${detail.twitter || 'N/A'}
 `)
-      if (detail.team?.length > 0) {
-        parts.push(`【团队成员】\n${detail.team.map((t: any) => `- ${t.name} (${t.role})`).join('\n')}`)
-      }
-      if (detail.funding?.length > 0) {
-        parts.push(`【融资纪录】\n${detail.funding.map((f: any) => `- ${f.round}: ${f.amount} (${f.date}) 投资方: ${f.investors?.join(', ') || 'N/A'}`).join('\n')}`)
-      }
+    if (detail.team?.length > 0) {
+      parts.push(`【团队成员】\n${detail.team.map((t: any) => `- ${t.name} (${t.role})`).join('\n')}`)
     }
-  } catch {}
+    if (detail.funding?.length > 0) {
+      parts.push(`【融资纪录】\n${detail.funding.map((f: any) => `- ${f.round}: ${f.amount} (${f.date}) 投资方: ${f.investors?.join(', ') || 'N/A'}`).join('\n')}`)
+    }
+  }
 
   // 2. 概念知识库（匹配赛道）
-  try {
-    const sectorsRes = await fetch(`http://localhost:3001/api/sectors`, { cache: 'no-store' })
-    if (sectorsRes.ok) {
-      const sectors = await sectorsRes.json()
-      const matched = sectors.sectors?.filter((s: any) =>
-        project && (s.term?.toLowerCase().includes(project.toLowerCase()) || s.id?.includes(project.toLowerCase()))
-      )
-      if (matched?.length > 0) {
-        const m = matched[0]
-        parts.push(`【赛道分析】
+  const sectors = await internalFetch('/api/sectors')
+  if (sectors?.sectors) {
+    const matched = sectors.sectors.filter((s: any) =>
+      project && (s.term?.toLowerCase().includes(project.toLowerCase()) || s.id?.includes(project.toLowerCase()))
+    )
+    if (matched?.length > 0) {
+      const m = matched[0]
+      parts.push(`【赛道分析】
 赛道: ${m.term}
 24h涨跌: ${m.change24h ? m.change24h.toFixed(2) + '%' : 'N/A'}
 热度原因: ${m.reason || ''}
 ${m.trends ? '趋势: ' + m.trends : ''}`)
-      }
     }
-  } catch {}
+  }
 
   // 3. 最新新闻（从 Odaily 缓存）
   try {
     const fs = await import('fs')
     const path = await import('path')
-    const cacheFile = path.join(process.cwd(), '..', 'data', 'odaily-news.html')
+    const cacheFile = path.join(process.cwd(), 'data', 'odaily-news.html')
     if (fs.existsSync(cacheFile)) {
       const html = fs.readFileSync(cacheFile, 'utf-8')
       const nameRegex = new RegExp(`\\[([^\\]]*${project.toLowerCase()}[^\\]]*)\\]`, 'gi')
@@ -97,34 +92,28 @@ ${m.trends ? '趋势: ' + m.trends : ''}`)
   } catch {}
 
   // 4. 资金费率（市场情绪）
-  try {
-    const fundingRes = await fetch(`http://localhost:3001/api/funding-rates`, { cache: 'no-store' })
-    if (fundingRes.ok) {
-      const funding = await fundingRes.json()
-      const matched = funding.signals?.filter((s: any) =>
-        s.symbol?.toLowerCase() === project.toLowerCase()
-      )
-      if (matched?.length > 0) {
-        parts.push(`【资金费率（市场情绪）】
+  const funding = await internalFetch('/api/funding-rates')
+  if (funding?.signals) {
+    const matched = funding.signals.filter((s: any) =>
+      s.symbol?.toLowerCase() === project.toLowerCase()
+    )
+    if (matched?.length > 0) {
+      parts.push(`【资金费率（市场情绪）】
 ${matched.map((s: any) => `- ${s.exchange}: ${s.rate >= 0 ? '+' : ''}${s.rate.toFixed(4)}%`).join('\n')}`)
-      }
     }
-  } catch {}
+  }
 
   // 5. 异常波动
-  try {
-    const anomalyRes = await fetch(`http://localhost:3001/api/anomalies`, { cache: 'no-store' })
-    if (anomalyRes.ok) {
-      const anomalies = await anomalyRes.json()
-      const matched = anomalies.signals?.filter((s: any) =>
-        s.symbol?.toLowerCase() === project.toLowerCase()
-      )
-      if (matched?.length > 0) {
-        const m = matched[0]
-        parts.push(`【异常波动】\n- 1h变化: ${m.change1h ? m.change1h.toFixed(2) + '%' : 'N/A'}\n- 24h变化: ${m.change24h ? m.change24h.toFixed(2) + '%' : 'N/A'}`)
-      }
+  const anomalies = await internalFetch('/api/anomalies')
+  if (anomalies?.signals) {
+    const matched = anomalies.signals.filter((s: any) =>
+      s.symbol?.toLowerCase() === project.toLowerCase()
+    )
+    if (matched?.length > 0) {
+      const m = matched[0]
+      parts.push(`【异常波动】\n- 1h变化: ${m.change1h ? m.change1h.toFixed(2) + '%' : 'N/A'}\n- 24h变化: ${m.change24h ? m.change24h.toFixed(2) + '%' : 'N/A'}`)
     }
-  } catch {}
+  }
 
   return parts.join('\n\n')
 }

@@ -4,11 +4,12 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { internalFetch, isVercel, readDataText, DATA_DIR } from '@/lib/serverEnv'
 
 export const dynamic = 'force-dynamic'
 
 const API_KEY = process.env.DEEPSEEK_API_KEY || ''
-const CACHE_FILE = path.join(process.cwd(), '..', 'data', 'ai-sectors.json')
+const CACHE_FILE = path.join(process.cwd(), 'data', 'ai-sectors.json')
 const CACHE_TTL = 24 * 60 * 60 * 1000 // 24h
 
 async function callDeepSeek(messages: any[]) {
@@ -29,16 +30,16 @@ async function callDeepSeek(messages: any[]) {
 async function refreshCache() {
   try {
     const [sectorsRes, trendingRes, newsHtml] = await Promise.all([
-      fetch('http://localhost:3001/api/sectors', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ sectors: [] })),
-      fetch('http://localhost:3001/api/trending', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ topics: [] })),
-      (async () => { try { return fs.readFileSync(path.join(process.cwd(), '..', 'data', 'odaily-news.html'), 'utf-8').slice(0, 5000) } catch { return '' } })(),
+      internalFetch('/api/sectors').then(r => r || { sectors: [] }),
+      internalFetch('/api/trending').then(r => r || { topics: [] }),
+      Promise.resolve(readDataText('odaily-news.html').slice(0, 5000)),
     ])
 
-    const sectorsSummary = sectorsRes.sectors?.slice(0, 10).map((s: any) =>
+    const sectorsSummary = (sectorsRes.sectors || []).slice(0, 10).map((s: any) =>
       `${s.term}(热度${s.heat},24h${s.change24h ?? 'N/A'}%,来源${s.sources?.join(',')})`
     ).join('; ') || ''
 
-    const trendingSummary = trendingRes.topics?.slice(0, 10).map((t: any) =>
+    const trendingSummary = (trendingRes.topics || []).slice(0, 10).map((t: any) =>
       `${t.name}(排名${t.rank},评分${t.web3Score})`
     ).join('; ') || ''
 
@@ -73,8 +74,11 @@ ${newsHtml.slice(0, 3000)}
       source: 'DeepSeek AI analysis based on real market data',
     }
 
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(output, null, 2))
-    console.log('[AI Sectors] Cache refreshed')
+    // Vercel 只读，跳过写入
+    if (!isVercel) {
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(output, null, 2))
+      console.log('[AI Sectors] Cache refreshed')
+    }
   } catch (e: any) {
     console.error('[AI Sectors] Background refresh error:', e.message)
   }

@@ -38,11 +38,20 @@ function writeCache(data: any) {
 
 // 从 @hourintel 频道抓取最新一期情报
 async function fetchWizzIntel(): Promise<{ raw: string; hour: string; date: string } | null> {
+  let html: string
   try {
-    const html = execSync(
-      `curl -sL --max-time 15 --connect-timeout 5 --proxy http://127.0.0.1:7897 "https://t.me/s/hourintel"`,
-      { timeout: 20000, encoding: 'utf-8' }
-    )
+    if (isVercel) {
+      // Vercel 上直接 fetch（无 GFW）
+      const res = await fetch('https://t.me/s/hourintel', { signal: AbortSignal.timeout(15000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      html = await res.text()
+    } else {
+      // 本地：curl 走代理
+      html = execSync(
+        `curl -sL --max-time 15 --connect-timeout 5 --proxy http://127.0.0.1:7897 "https://t.me/s/hourintel"`,
+        { timeout: 20000, encoding: 'utf-8' }
+      )
+    }
     // 提取第一条消息
     const match = html.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/)
     if (!match || !match[1]) return null

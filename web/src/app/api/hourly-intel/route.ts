@@ -9,30 +9,49 @@ import { isVercel } from '@/lib/serverEnv'
 
 export const dynamic = 'force-dynamic'
 
-const CACHE_DIR = path.join(process.cwd(), 'data', 'hourly-intel')
+// 本地缓存目录（写入 data/hourly-intel 或 Vercel /tmp）
+const LOCAL_DIR = path.join(process.cwd(), 'data', 'hourly-intel')
+const VERCEL_TMP = '/tmp/onchain-alpha-hourly-intel'
 
-function hourCachePath(): string {
-  if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true })
-  const now = new Date()
-  const hourKey = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}`
-  return path.join(CACHE_DIR, `${hourKey}.json`)
+function getCacheDir(): string {
+  return isVercel ? VERCEL_TMP : LOCAL_DIR
 }
 
+function hourKey(date?: Date): string {
+  const d = date || new Date()
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}`
+}
+
+function hourCachePath(date?: Date): string {
+  return path.join(getCacheDir(), `${hourKey(date)}.json`)
+}
+
+// 内存缓存（Vercel 冷启动时用）
+const memCache = new Map<string, { data: any; ts: number }>()
+
 function readCache(): any {
+  // 1. 本地文件
   try {
     const p = hourCachePath()
-    if (!fs.existsSync(p)) return null
-    const raw = JSON.parse(fs.readFileSync(p, 'utf-8'))
-    if (Date.now() - raw.generatedAt < 60 * 60 * 1000) return raw
+    if (fs.existsSync(p)) {
+      const raw = JSON.parse(fs.readFileSync(p, 'utf-8'))
+      if (Date.now() - raw.generatedAt < 60 * 60 * 1000) return raw
+    }
   } catch {}
+  // 2. 内存缓存
+  const memKey = hourKey()
+  const mem = memCache.get(memKey)
+  if (mem && Date.now() - mem.ts < 60 * 60 * 1000) return mem.data
   return null
 }
 
 function writeCache(data: any) {
-  if (isVercel) return
+  const memKey = hourKey()
+  memCache.set(memKey, { data, ts: Date.now() })
   try {
-    fs.mkdirSync(CACHE_DIR, { recursive: true })
-    fs.writeFileSync(hourCachePath(), JSON.stringify(data, null, 2))
+    const dir = getCacheDir()
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, `${memKey}.json`), JSON.stringify(data, null, 2))
   } catch {}
 }
 
@@ -272,21 +291,51 @@ function parseWizzIntel(raw: string, hour: string, date: string): any {
 function readRecentCaches(hours: number): any[] {
   const items: any[] = []
   const now = Date.now()
+  const checked = new Set<string>()
+
+  // 尝试的缓存源
+  const cacheFiles = (h: number): string[] => {
+    const d = new Date(now - h * 60 * 60 * 1000)
+    const key = hourKey(d)
+    const paths: string[] = [path.join(getCacheDir(), `${key}.json`)]
+    // 也检查本地目录（本机开发环境写入了 data/）
+    if (isVercel) paths.push(path.join(LOCAL_DIR, `${key}.json`))
+    return paths
+  }
+
   for (let h = 0; h < hours; h++) {
     const d = new Date(now - h * 60 * 60 * 1000)
-    const hourKey = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}`
-    const fp = path.join(CACHE_DIR, `${hourKey}.json`)
-    try {
-      if (fs.existsSync(fp)) {
-        const data = JSON.parse(fs.readFileSync(fp, 'utf-8'))
-        items.push({
-          ...data,
-          hourKey,
-          hourLabel: data.hour || `${d.getHours()}:00`,
-        })
+    const key = hourKey(d)
+    if (checked.has(key)) continue
+    checked.add(key)
+
+    let data: any = null
+
+    // 1. 内存缓存
+    const mem = memCache.get(key)
+    if (mem) data = mem.data
+
+    // 2. 文件缓存
+    if (!data) {
+      for (const fp of cacheFiles(h)) {
+        try {
+          if (fs.existsSync(fp)) {
+            data = JSON.parse(fs.readFileSync(fp, 'utf-8'))
+            break
+          }
+        } catch {}
       }
-    } catch {}
+    }
+
+    if (data) {
+      items.push({
+        ...data,
+        hourKey: key,
+        hourLabel: data.hour || `${d.getHours()}:00`,
+      })
+    }
   }
+
   return items.sort((a, b) => (b.hourKey || '').localeCompare(a.hourKey || ''))
 }
 

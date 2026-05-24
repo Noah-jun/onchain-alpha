@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
 import Header from '@/components/Header'
 
@@ -440,16 +440,23 @@ function TrendingTopics({ onSelect, onSearch }: { onSelect: (coinName: string) =
   const [isLoading, setIsLoading] = useState(true)
   const [selectedIntel, setSelectedIntel] = useState<any>(null)
 
-  useEffect(() => {
-    Promise.all([
+  // 获取小时情报数据（含自动刷新）
+  const fetchIntel = useCallback(async () => {
+    const [listData, currentData] = await Promise.all([
       fetch('/api/hourly-intel?mode=list').then(r => r.json()).catch(() => ({ items: [] })),
       fetch('/api/hourly-intel').then(r => r.json()).catch(() => null),
-    ]).then(([listData, currentData]) => {
-      setItems(listData.items || [])
-      setCurrent(currentData)
-      setIsLoading(false)
-    }).catch(() => setIsLoading(false))
+    ])
+    setItems(listData.items || [])
+    setCurrent(currentData)
+    setIsLoading(false)
   }, [])
+
+  useEffect(() => {
+    fetchIntel()
+    // 每 60 秒自动刷新，确保新小时数据及时展示
+    const interval = setInterval(fetchIntel, 60 * 1000)
+    return () => clearInterval(interval)
+  }, [fetchIntel])
 
   // 关闭右侧面板
   const closePanel = () => setSelectedIntel(null)
@@ -953,6 +960,12 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
   const [project, setProject] = useState<ProjectDetail | null>(null)
 
+  const [extendedData, setExtendedData] = useState<any>(null)
+
+  const [aiResearch, setAiResearch] = useState<any>(null)
+
+  const [aiLoading, setAiLoading] = useState(false)
+
   const [isLoading, setIsLoading] = useState(true)
 
   const [error, setError] = useState('')
@@ -965,11 +978,23 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
       setError('')
 
+      setAiResearch(null)
+
+      const symbol = coinId.toUpperCase()
+
       try {
 
-        const res = await fetch(`/api/project-search?id=${coinId}`)
+        const [res, detailRes] = await Promise.all([
+
+          fetch(`/api/project-search?id=${coinId}`),
+
+          fetch(`/api/project-detail?symbol=${symbol}`),
+
+        ])
 
         const data = await res.json()
+
+        const detail = await detailRes.json()
 
         if (data.error) {
 
@@ -979,6 +1004,20 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
 
           setProject(data.project)
 
+          if (detail && !detail.error) setExtendedData(detail)
+
+          // 如果团队或融资信息缺失，用 AI 搜索补充
+          const teamEmpty = !detail?.team?.length && !data.project?.team?.length
+          const fundingEmpty = !detail?.funding?.length
+          if (teamEmpty || fundingEmpty) {
+            setAiLoading(true)
+            fetch(`/api/ai-project-detail?symbol=${symbol}`).then(r => r.json()).then(ai => {
+              if (ai?.people?.team?.length || ai?.people?.vcs?.length) {
+                setAiResearch(ai.people)
+              }
+              setAiLoading(false)
+            }).catch(() => setAiLoading(false))
+          }
         }
 
       } catch (err) {
@@ -1320,6 +1359,175 @@ function ProjectDetailView({ coinId, onBack }: { coinId: string; onBack: () => v
         </div>
 
       </div>
+
+      {/* 团队信息：数据库数据 → AI搜索数据 兜底 */}
+
+      {(() => {
+
+        const teamMembers = (extendedData?.team?.length > 0) ? extendedData.team : (aiResearch?.team || [])
+
+        const hasTeam = teamMembers.length > 0
+
+        return (hasTeam || aiLoading) ? (
+
+          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+
+            <h3 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+
+              <Users className="w-4 h-4 text-indigo-600" /> 核心团队
+
+              {aiLoading && <span className="ml-auto text-[10px] text-indigo-500 font-normal flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />AI搜索中</span>}
+
+              {(!extendedData?.team?.length && aiResearch?.team?.length) && <span className="ml-auto text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">AI搜索</span>}
+
+            </h3>
+
+            <div className="space-y-3">
+
+              {teamMembers.map((member: any, i: number) => (
+
+                <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+
+                  {/* 头像占位 */}
+
+                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
+
+                    {(member.name?.charAt(0) || member.charAt(0) || '?').toUpperCase()}
+
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+
+                    <div className="flex items-center justify-between gap-2">
+
+                      <span className="text-sm font-medium text-slate-800">{member.name}</span>
+
+                      <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-medium">{member.role}</span>
+
+                    </div>
+
+                    {member.twitter && (
+
+                      <a href={`https://twitter.com/${member.twitter.replace('https://twitter.com/', '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-500 hover:underline mt-0.5 inline-block">
+
+                        🐦 @{member.twitter.replace('https://twitter.com/', '')}
+
+                      </a>
+
+                    )}
+
+                    {member.background && (
+
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{member.background}</p>
+
+                    )}
+
+                  </div>
+
+                </div>
+
+              ))}
+
+              {!hasTeam && aiLoading && (
+
+                <div className="text-center py-4">
+
+                  <div className="inline-block w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+
+                  <p className="text-xs text-slate-400 mt-2">AI正在搜索团队信息...</p>
+
+                </div>
+
+              )}
+
+            </div>
+
+          </div>
+
+        ) : null
+
+      })()}
+
+      {/* 融资信息：数据库数据 → AI搜索数据 兜底 */}
+
+      {(() => {
+
+        const fundingRounds = (extendedData?.funding?.length > 0) ? extendedData.funding : (() => {
+          if (!aiResearch?.vcs?.length) return []
+          return [{ round: '融资', amount: '', date: '', investors: aiResearch.vcs }]
+        })()
+
+        const hasFunding = fundingRounds.length > 0
+
+        return (hasFunding || aiLoading) ? (
+
+          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+
+            <h3 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+
+              <DollarSign className="w-4 h-4 text-indigo-600" /> 融资情况
+
+              {aiLoading && <span className="ml-auto text-[10px] text-indigo-500 font-normal flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />AI搜索中</span>}
+
+              {(!extendedData?.funding?.length && aiResearch?.vcs?.length) && <span className="ml-auto text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded">AI搜索</span>}
+
+            </h3>
+
+            <div className="space-y-3">
+
+              {fundingRounds.map((round: any, i: number) => (
+
+                <div key={i} className="p-3 bg-slate-50 rounded-lg">
+
+                  <div className="flex items-center justify-between mb-1">
+
+                    <span className="text-sm font-medium text-slate-800">{round.round}</span>
+
+                    {round.amount && <span className="text-sm font-bold text-indigo-600">{round.amount}</span>}
+
+                  </div>
+
+                  {round.date && <p className="text-xs text-slate-400 mb-1">📅 {round.date}</p>}
+
+                  {round.investors?.length > 0 && (
+
+                    <div className="flex flex-wrap gap-1 mt-1">
+
+                      <span className="text-[10px] text-slate-400 mr-1">领投/参投:</span>
+
+                      {round.investors.map((inv: string, j: number) => (
+
+                        <span key={j} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[10px]">{inv}</span>
+
+                      ))}
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              ))}
+
+              {!hasFunding && aiLoading && (
+
+                <div className="text-center py-4">
+
+                  <div className="inline-block w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+
+                  <p className="text-xs text-slate-400 mt-2">AI正在搜索融资信息...</p>
+
+                </div>
+
+              )}
+
+            </div>
+
+          </div>
+
+        ) : null
+
+      })()}
 
       {/* 社区情绪 */}
 
@@ -2428,7 +2636,7 @@ export default function Home() {
 
             {researchView === 'sectors' && <SectorDashboard onSelect={(id) => { setSelectedCoinId(id); setResearchView('detail') }} />}
 
-            {researchView === 'projects' && <HotProjects onSelect={(id) => { setSelectedCoinId(id); setResearchView('detail') }} />}
+            {researchView === 'projects' && <HotProjects onSelect={handleProjectSelect} />}
 
 
 

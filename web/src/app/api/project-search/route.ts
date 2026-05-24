@@ -5,7 +5,10 @@
 
 import { NextResponse } from 'next/server'
 import { CRYPTO_CONCEPTS, searchConcepts, CryptoConcept } from '@/lib/concepts'
-import { externalFetch, isVercel } from '@/lib/serverEnv'
+import { externalFetch, isVercel, DATA_DIR } from '@/lib/serverEnv'
+import { getProjectInfo } from '@/lib/projectsDB'
+import fs from 'fs'
+import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,6 +106,59 @@ function getSector(categories: string[]): string {
   return categories[0]
 }
 
+// 本地兜底：从 projectsDB + 缓存文件中构建项目信息
+function getLocalProjectFallback(symbol: string): any {
+  const dbInfo = getProjectInfo(symbol)
+  if (!dbInfo) return null
+
+  // 尝试从缓存文件获取价格数据
+  let price = 0, change24h = 0, marketCap = 0, volume = 0, image = ''
+  try {
+    const trending = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'coingecko-trending.json'), 'utf-8'))
+    if (trending?.coins) {
+      for (const c of trending.coins) {
+        if (c.item.symbol.toUpperCase() === symbol) {
+          price = c.item.data?.price || 0
+          change24h = c.item.data?.price_change_percentage_24h?.usd || 0
+          marketCap = c.item.data?.market_cap?.usd || 0
+          volume = c.item.data?.total_volume?.usd || 0
+          image = c.item.large || c.item.thumb || ''
+          break
+        }
+      }
+    }
+  } catch {}
+
+  return {
+    id: symbol.toLowerCase(),
+    symbol,
+    name: dbInfo.name || symbol,
+    image,
+    website: dbInfo.website || '',
+    twitter: dbInfo.twitter || '',
+    telegram: dbInfo.telegram || '',
+    whitepaper: dbInfo.whitepaper || '',
+    blockchainSite: '',
+    genesisDate: '',
+    sector: dbInfo.sector || '其他',
+    categories: [dbInfo.sector].filter(Boolean),
+    description: dbInfo.description || `${dbInfo.name || symbol} 是加密市场热门项目`,
+    price,
+    priceChange24h: change24h,
+    priceChange7d: 0,
+    priceChange30d: 0,
+    marketCap,
+    marketCapRank: 0,
+    volume24h: volume,
+    circulatingSupply: 0,
+    totalSupply: 0,
+    maxSupply: undefined,
+    circulationRate: 'N/A',
+    sentimentUp: 0,
+    sentimentDown: 0,
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -139,12 +195,20 @@ export async function GET(request: Request) {
 
     // 获取项目详情
     if (coinId) {
-      // 先按 CoinGecko ID 查找，失败则按 symbol 兜底搜索
+      // 1. 先按 CoinGecko ID 查找
       let details = await getProjectDetails(coinId)
+      
+      // 2. 失败则按 symbol 兜底搜索
       if (!details) {
         details = await getProjectDetailsBySymbol(coinId)
       }
+
+      // 3. CoinGecko 全部不可用时，使用本地项目数据库 + 缓存文件兜底
       if (!details) {
+        const localFallback = getLocalProjectFallback(coinId.toUpperCase())
+        if (localFallback) {
+          return NextResponse.json({ type: 'detail', project: localFallback, timestamp: Date.now() })
+        }
         return NextResponse.json({ error: 'Project not found' }, { status: 404 })
       }
 

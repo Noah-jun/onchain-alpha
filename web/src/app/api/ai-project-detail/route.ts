@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import { internalFetch, isVercel, readDataFile } from '@/lib/serverEnv'
+import { execSync } from 'child_process'
+import { internalFetch, isVercel, readDataFile, externalFetch } from '@/lib/serverEnv'
 
 export const dynamic = 'force-dynamic'
 
@@ -143,6 +144,49 @@ ${context}
 }`
 }
 
+// Web 搜索项目信息（团队、融资、新闻等）
+// 使用 DuckDuckGo HTML 搜索，无需 API Key
+async function webSearchProject(query: string): Promise<string> {
+  const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+  try {
+    let html: string
+    if (isVercel) {
+      const res = await fetch(searchUrl, { signal: AbortSignal.timeout(10000) })
+      if (!res.ok) return ''
+      html = await res.text()
+    } else {
+      html = execSync(
+        `curl -sL --max-time 10 --connect-timeout 5 --proxy http://127.0.0.1:7897 "${searchUrl}"`,
+        { timeout: 15000, encoding: 'utf-8' }
+      )
+    }
+    // 提取搜索结果摘要
+    const snippets: string[] = []
+    const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi
+    let m: RegExpExecArray | null
+    while ((m = resultRegex.exec(html)) !== null) {
+      const title = m[2].replace(/<[^>]+>/g, '').trim()
+      const snippet = m[3].replace(/<[^>]+>/g, '').trim()
+      if (title && snippet) snippets.push(`${title}: ${snippet.slice(0, 300)}`)
+      if (snippets.length >= 5) break
+    }
+    if (snippets.length === 0) {
+      // Fallback: 尝试其他格式
+      const results = html.match(/<a[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<span[^>]*class="[^"]*snippet[^"]*"[^>]*>([\s\S]*?)<\/span>/gi)
+      if (results) {
+        for (let r = 0; r < Math.min(results.length, 5); r++) {
+          const clean = results[r].replace(/<[^>]+>/g, '').trim()
+          if (clean) snippets.push(clean.slice(0, 300))
+        }
+      }
+    }
+    return snippets.length ? snippets.join('\n\n') : ''
+  } catch (e) {
+    console.error('[AI WebSearch] Error:', e)
+    return ''
+  }
+}
+
 async function callDeepSeek(messages: any[], timeoutMs: number): Promise<string> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
@@ -184,7 +228,23 @@ export async function GET(request: Request) {
   ])
 
   const name = localData?.name || symbol
-  const context = buildContext(symbol, realtime, localData)
+  let context = buildContext(symbol, realtime, localData)
+
+  // 如果本地数据中缺少团队或融资信息，自动用 Web 搜索补充
+  const needTeamInfo = !localData?.team?.length
+  const needFundingInfo = !localData?.funding?.length
+  if (needTeamInfo || needFundingInfo) {
+    const searchQueries: string[] = []
+    if (needTeamInfo) searchQueries.push(`${name} ${symbol} team founders background crypto`)
+    if (needFundingInfo) searchQueries.push(`${name} ${symbol} funding round investors venture capital`)
+    try {
+      const searchResults = await Promise.all(searchQueries.map(q => webSearchProject(q)))
+      const searchText = searchResults.filter(Boolean).join('\n\n')
+      if (searchText) {
+        context += `\n\n【Web搜索结果补充】\n${searchText}\n`
+      }
+    } catch {}
+  }
 
   let result: any = {}
   let ai: any = {}

@@ -44,6 +44,29 @@ export default function SignalCard({ signal, onClick }: SignalCardProps) {
   )
 }
 
+// 代币头像：根据 symbol 生成带颜色的首字母图标
+function TokenAvatar({ symbol, size = 'md' }: { symbol: string; size?: 'sm' | 'md' | 'lg' }) {
+  const colors = [
+    'from-indigo-400 to-indigo-600',
+    'from-emerald-400 to-emerald-600',
+    'from-violet-400 to-violet-600',
+    'from-rose-400 to-rose-600',
+    'from-amber-400 to-amber-600',
+    'from-sky-400 to-sky-600',
+    'from-pink-400 to-pink-600',
+    'from-cyan-400 to-cyan-600',
+    'from-orange-400 to-orange-600',
+    'from-teal-400 to-teal-600',
+  ]
+  const idx = Array.from(symbol).reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length
+  const sizeClass = size === 'sm' ? 'w-8 h-8 text-sm' : size === 'lg' ? 'w-14 h-14 text-xl' : 'w-12 h-12 text-lg'
+  return (
+    <div className={`${sizeClass} rounded-xl bg-gradient-to-br ${colors[idx]} flex items-center justify-center shrink-0 shadow-sm`}>
+      <span className="font-bold text-white">{symbol.charAt(0).toUpperCase()}</span>
+    </div>
+  )
+}
+
 function AnomalyContent({ signal }: { signal: AnomalySignal }) {
   const isUp = signal.change5m > 0
   const isVolatilityOnly = Math.abs(signal.change24h) > 10 && Math.abs(signal.change5m) <= 6
@@ -53,13 +76,8 @@ function AnomalyContent({ signal }: { signal: AnomalySignal }) {
   return (
     <>
       <div className="flex items-start gap-4">
-        {/* 左侧图标 */}
-        <div className={cn(
-          'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
-          isUp ? 'bg-emerald-100' : 'bg-red-100'
-        )}>
-          <span className="text-xl">⚡</span>
-        </div>
+        {/* 左侧代币头像 */}
+        <TokenAvatar symbol={signal.symbol} />
 
         {/* 中间内容 */}
         <div className="flex-1 min-w-0">
@@ -98,7 +116,7 @@ function AnomalyContent({ signal }: { signal: AnomalySignal }) {
         </div>
 
         {/* 右侧 */}
-        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700">
+        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700 shrink-0">
           详情 →
         </button>
       </div>
@@ -114,39 +132,35 @@ function WhaleContent({ signal }: { signal: WhaleSignal }) {
   return (
     <>
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-          <span className="text-xl">🐋</span>
-        </div>
+        {/* 代币头像 */}
+        <TokenAvatar symbol={signal.symbol} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-slate-800">{signal.fromLabel}</span>
+            <span className="text-sm font-semibold text-slate-800">{signal.symbol}</span>
             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
-              高风险
+              巨鲸转账
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">
-              巨鲸转账
+              {signal.fromLabel} → {signal.toLabel}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             <span className="text-[10px] text-slate-400">{formatRelativeTime(signal.timestamp)}</span>
           </div>
           <div className="text-xs text-slate-500 mb-2">
-            {signal.amount} {signal.symbol} → {signal.toLabel}
+            金额：{formatAmount(signal.amountUsd, signal.symbol)}
           </div>
           <div className="flex items-center gap-2">
             <span className={cn('px-2 py-1 rounded text-[10px]', directionColor, 'bg-slate-100')}>
-              {directionIcon} {directionText}{signal.toLabel}
+              {directionIcon} {directionText}
             </span>
             <span className="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">
               {signal.chain}
             </span>
-            <span className="text-[10px] text-slate-500 font-mono">
-              {formatAmount(signal.amountUsd, signal.symbol)}
-            </span>
           </div>
         </div>
 
-        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700">
+        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700 shrink-0">
           详情 →
         </button>
       </div>
@@ -161,18 +175,17 @@ function FundingContent({ signal }: { signal: FundingSignal }) {
   return (
     <>
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
-          <span className="text-lg">{isAbnormal ? '🚨' : '📊'}</span>
-        </div>
+        {/* 代币头像 */}
+        <TokenAvatar symbol={signal.symbol} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-slate-800">{signal.exchange}</span>
+            <span className="text-sm font-semibold text-slate-800">{signal.symbol}</span>
             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">
               资金费率
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">
-              {signal.symbol}
+              {signal.exchange}
             </span>
             {isAbnormal && (
               <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 animate-pulse">
@@ -202,7 +215,7 @@ function FundingContent({ signal }: { signal: FundingSignal }) {
           </div>
         </div>
 
-        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700">
+        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700 shrink-0">
           详情 →
         </button>
       </div>
@@ -214,21 +227,23 @@ function LiquidationContent({ signal }: { signal: LiquidationSignal }) {
   return (
     <>
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
-          <span className="text-lg">💧</span>
-        </div>
+        {/* 代币头像 */}
+        <TokenAvatar symbol={signal.symbol} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-slate-800">{signal.platform}</span>
+            <span className="text-sm font-semibold text-slate-800">{signal.symbol}</span>
             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">
               大额清算
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500">
+              {signal.platform}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
             <span className="text-[10px] text-slate-400">{formatRelativeTime(signal.timestamp)}</span>
           </div>
           <div className="text-xs text-slate-500 mb-2">
-            {formatAmount(signal.amountUsd, signal.symbol)} 被清算
+            {formatAmount(signal.amountUsd, signal.symbol)}{signal.side === 'long' ? ' 多头' : ' 空头'} 被清算
           </div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-1 rounded bg-slate-100 text-[10px] text-slate-600">
@@ -240,7 +255,7 @@ function LiquidationContent({ signal }: { signal: LiquidationSignal }) {
           </div>
         </div>
 
-        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700">
+        <button className="text-indigo-500 text-xs font-medium hover:text-indigo-700 shrink-0">
           详情 →
         </button>
       </div>

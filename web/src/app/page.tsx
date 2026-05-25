@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 import Header from '@/components/Header'
 
@@ -1578,6 +1578,8 @@ function ProjectQuickView({ symbol, onBack }: { symbol: string; onBack: () => vo
   const [deep, setDeep] = useState<any>(null)
   const [deepLoading, setDeepLoading] = useState(false)
   const [deepExpanded, setDeepExpanded] = useState(false)
+  // 加载进度指示器
+  const [loadProgress, setLoadProgress] = useState(0)
 
   useEffect(() => {
     const up = symbol.toUpperCase()
@@ -1594,6 +1596,22 @@ function ProjectQuickView({ symbol, onBack }: { symbol: string; onBack: () => vo
       setAiQuickLoading(false)
     }).catch(() => setAiQuickLoading(false))
   }, [symbol])
+
+  // Layer1 → Layer2 进度动画
+  useEffect(() => {
+    if (aiQuickLoading && !realtimeLoading) {
+      setLoadProgress(0)
+      const startTime = Date.now()
+      const targetMs = 9000 // 目标 9 秒到 90%
+      const timer = setInterval(() => {
+        const elapsed = Date.now() - startTime
+        const pct = Math.min(90, (elapsed / targetMs) * 90)
+        setLoadProgress(pct)
+      }, 100)
+      return () => clearInterval(timer)
+    }
+    if (!aiQuickLoading) setLoadProgress(100)
+  }, [aiQuickLoading, realtimeLoading])
 
   const loadDeep = async () => {
     if (deep) { setDeepExpanded(true); return }
@@ -1660,21 +1678,23 @@ function ProjectQuickView({ symbol, onBack }: { symbol: string; onBack: () => vo
         <MetricCard label="团队" value={rt.team?.length ? rt.team.length + ' 人' : '—'} subtitle={rt.funding?.length ? rt.funding.length + ' 轮融资' : ''} />
       </div>
 
-      {/* ===== AI 快速概览（6维，后台加载） ===== */}
+      {/* ===== AI 加载进度条 ===== */}
       {aiQuickLoading && (
-        <div className="space-y-3 mb-4">
-          {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse">
-              <div className="h-3 bg-slate-200 rounded w-1/4 mb-3" />
-              <div className="h-3 bg-slate-200 rounded w-3/4 mb-2" />
-              <div className="h-3 bg-slate-200 rounded w-1/2" />
-              {i <= 2 && <><div className="h-20 bg-slate-50 rounded-lg mt-3" /></>}
+        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-medium text-slate-600">更多信息加载中</span>
             </div>
-          ))}
-          <div className="text-center py-3">
-            <div className="inline-block w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin align-middle mr-2" />
-            <span className="text-xs text-slate-400 align-middle">AI 正在生成6维投研概览（预计5-10秒）...</span>
+            <span className="text-xs text-slate-400 font-mono">{Math.round(loadProgress)}%</span>
           </div>
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-300 ease-out"
+              style={{ width: loadProgress + '%' }}
+            />
+          </div>
+          <p className="text-[10px] text-slate-400 mt-2">AI 正在生成6维投研概览（预计5-10秒）...</p>
         </div>
       )}
 
@@ -2406,6 +2426,37 @@ export default function Home() {
     return () => clearInterval(interval)
 
   }, [])
+
+  // URL 状态恢复：刷新后保持当前视图
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+
+    const tab = params.get('tab')
+    if (tab === 'research') {
+      setActiveTab('research')
+
+      const view = params.get('view')
+      if (view === 'search' || view === 'detail' || view === 'sectors' || view === 'projects' || view === 'trending') {
+        setResearchView(view)
+      }
+
+      const coin = params.get('coin')
+      if (coin) setSelectedCoinId(coin)
+    }
+  }, [])
+
+  // URL 状态同步
+  const firstRender = useRef(true)
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return }
+    const params = new URLSearchParams()
+    if (activeTab !== 'signals') params.set('tab', activeTab)
+    if (researchView !== 'sectors') params.set('view', researchView)
+    if (selectedCoinId) params.set('coin', selectedCoinId)
+    const qs = params.toString()
+    const base = window.location.pathname
+    window.history.replaceState(null, '', qs ? base + '?' + qs : base)
+  }, [activeTab, researchView, selectedCoinId])
 
   const handleProjectSelect = (symbol: string) => {
 

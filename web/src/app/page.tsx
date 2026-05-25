@@ -439,6 +439,7 @@ function TrendingTopics({ onSelect, onSearch }: { onSelect: (coinName: string) =
   const [current, setCurrent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedIntel, setSelectedIntel] = useState<any>(null)
+  const [showAllHours, setShowAllHours] = useState(false)
 
   // 获取小时情报数据（含自动刷新）
   const fetchIntel = useCallback(async () => {
@@ -446,7 +447,20 @@ function TrendingTopics({ onSelect, onSearch }: { onSelect: (coinName: string) =
       fetch('/api/hourly-intel?mode=list').then(r => r.json()).catch(() => ({ items: [] })),
       fetch('/api/hourly-intel').then(r => r.json()).catch(() => null),
     ])
-    setItems(listData.items || [])
+    // 合并缓存文件 + recentHours（确保至少展示12条）
+    const cacheItems = listData.items || []
+    const recentItems = (currentData?.recentHours || []).map((h: any, i: number) => ({
+      ...h,
+      hourKey: `${h.date}-${String(h.hour || i).replace(':', '')}`,
+      hourLabel: h.hour,
+    }))
+    const merged = [...cacheItems]
+    for (const r of recentItems) {
+      if (!merged.find((m: any) => m.hourKey === r.hourKey)) merged.push(r)
+    }
+    // 去重后按时间倒序
+    merged.sort((a: any, b: any) => ((b.hourKey || '') > (a.hourKey || '') ? 1 : -1))
+    setItems(merged)
     setCurrent(currentData)
     setIsLoading(false)
   }, [])
@@ -616,7 +630,7 @@ function TrendingTopics({ onSelect, onSearch }: { onSelect: (coinName: string) =
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">🕐 历史情报</p>
             <div className="space-y-2">
-              {items.slice(0, 24).map((item: any, i: number) => (
+              {(showAllHours ? items : items.slice(0, 3)).map((item: any, i: number) => (
                 <div key={item.hourKey || i} onClick={() => setSelectedIntel(item)} className="bg-white rounded-xl border border-slate-200 p-4 hover:border-indigo-300 cursor-pointer transition-all">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">📡 {item.hourLabel || '整点情报'}</span>
@@ -629,6 +643,14 @@ function TrendingTopics({ onSelect, onSearch }: { onSelect: (coinName: string) =
                 </div>
               ))}
             </div>
+            {!showAllHours && items.length > 3 && (
+              <button
+                onClick={() => setShowAllHours(true)}
+                className="w-full mt-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all flex items-center justify-center gap-1.5"
+              >
+                加载更多（共 {items.length} 条） <span className="text-indigo-400">↓</span>
+              </button>
+            )}
           </div>
         )}
 

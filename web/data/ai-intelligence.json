@@ -1,99 +1,85 @@
 {
-  "reportTime": "12:00",
-  "date": "2025-03-19",
-  "summary": "市场情绪偏空：比特币和以太坊ETF连续多日净流出，巨鲸抛售ETH并做空ZEC，但HYPE持续获得增持，热门币种分化明显。",
+  "reportTime": "10:00",
+  "date": "2025-04-01",
+  "summary": "市场整体平稳，比特币ETF连续净流出，以太坊ETF亦持续流出；ZEC逼近关键阻力，HYPE获a16z持续增持，AI代理支付协议获关注。",
   "priceAlerts": [],
   "keyInfo": [
     {
-      "title": "比特币现货ETF昨日总净流出1.05亿美元，持续6日净流出",
+      "title": "比特币现货ETF持续净流出，昨日净流出1.05亿美元",
       "tags": [
-        "资金流"
+        "资金流",
+        "事件"
       ],
-      "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483523",
-      "engagement": "高"
+      "source": "Odaily星球日报",
+      "sourceUrl": "",
+      "engagement": ""
     },
     {
-      "title": "以太坊现货ETF昨日总净流出667.36万美元，持续10日净流出",
+      "title": "Bitdeer零持仓，本周出售201.6枚BTC",
       "tags": [
-        "资金流"
+        "资金流",
+        "事件"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483522",
-      "engagement": "高"
+      "sourceUrl": "",
+      "engagement": ""
     },
     {
-      "title": "“1011内幕巨鲸”代理人开仓3447万美元ZEC空单，HYPE持仓增加至68,560枚",
+      "title": "a16z疑似地址再提超11万枚HYPE，累计持仓593万枚浮盈8672万美元",
       "tags": [
-        "事件",
-        "资金流"
+        "资金流",
+        "机构"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483520",
-      "engagement": "高"
+      "sourceUrl": "",
+      "engagement": ""
     },
     {
-      "title": "a16z疑似地址24小时内再提超11万枚HYPE，累计持仓593万枚浮盈8672万美元",
+      "title": "Stripe发布MPP机器支付协议，AI Agent可自主完成支付设置",
       "tags": [
-        "资金流"
+        "协议",
+        "新增"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483513",
-      "engagement": "中"
+      "sourceUrl": "",
+      "engagement": ""
     },
     {
-      "title": "某巨鲸过去一小时以2059美元均价抛售2万枚ETH，价值4118万美元",
+      "title": "某巨鲸抛售2万枚ETH，价值4118万美元",
       "tags": [
-        "事件",
         "资金流"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483503",
-      "engagement": "高"
+      "sourceUrl": "",
+      "engagement": ""
     }
   ],
   "watchlist": [
     {
-      "title": "Bitdeer本周出售201.6枚BTC，当前仍维持零持仓",
+      "title": "ZEC价格面临关键阻力，关注是否突破",
       "tags": [
-        "资金流"
+        "分析",
+        "延续"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483527"
+      "sourceUrl": ""
     },
     {
-      "title": "日元稳定币公司JPYC完成约50亿日元系列B轮融资",
+      "title": "超11万枚HYPE被a16z地址提取，关注后续动作",
       "tags": [
-        "协议",
-        "融资"
+        "资金流",
+        "延续"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483511"
-    },
-    {
-      "title": "分析师：ZEC逼近去年11月关键阻力区间或迎转折",
-      "tags": [
-        "分析"
-      ],
-      "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483508"
-    },
-    {
-      "title": "Stripe官方发布MPP机器支付协议，AI Agent可通过提示词自主完成支付",
-      "tags": [
-        "协议",
-        "AI"
-      ],
-      "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483525"
+      "sourceUrl": ""
     }
   ],
   "hotSectors": [
-    "DeFi",
-    "GameFi",
-    "隐私计算",
-    "AI"
+    "DeFi衍生品",
+    "隐私",
+    "AI代理",
+    "GameFi"
   ],
-  "generatedAt": 1779689516136,
+  "generatedAt": 1779691077887,
   "rawNews": []
 }

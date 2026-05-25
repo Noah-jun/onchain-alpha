@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
 import Header from '@/components/Header'
 
@@ -2371,7 +2371,21 @@ function AIResearch({ onSelect }: { onSelect: (id: string) => void }) {
 
 export default function Home() {
 
-  const [activeTab, setActiveTab] = useState<'signals' | 'research'>('signals')
+  // 从 URL 恢复状态（lazy init，避免闪屏）
+  function getInitialUrlState() {
+    if (typeof window === 'undefined') return { tab: 'signals' as const, view: 'sectors' as const, coin: null as string | null }
+    const params = new URLSearchParams(window.location.search)
+    return {
+      tab: params.get('tab') === 'research' ? 'research' as const : 'signals' as const,
+      view: (params.get('view') as any) === 'search' || params.get('view') === 'detail' || params.get('view') === 'projects' || params.get('view') === 'trending'
+        ? params.get('view') as 'search' | 'detail' | 'projects' | 'trending'
+        : 'sectors' as const,
+      coin: params.get('coin') || null,
+    }
+  }
+  const urlState = getInitialUrlState()
+
+  const [activeTab, setActiveTab] = useState<'signals' | 'research'>(urlState.tab)
 
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null)
 
@@ -2383,9 +2397,9 @@ export default function Home() {
 
   const [isLoading, setIsLoading] = useState(true)
 
-  const [researchView, setResearchView] = useState<'trending' | 'search' | 'detail' | 'sectors' | 'projects'>('sectors')
+  const [researchView, setResearchView] = useState<'trending' | 'search' | 'detail' | 'sectors' | 'projects'>(urlState.view)
 
-  const [selectedCoinId, setSelectedCoinId] = useState<string | null>(null)
+  const [selectedCoinId, setSelectedCoinId] = useState<string | null>(urlState.coin)
 
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -2427,28 +2441,10 @@ export default function Home() {
 
   }, [])
 
-  // URL 状态恢复：刷新后保持当前视图
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
 
-    const tab = params.get('tab')
-    if (tab === 'research') {
-      setActiveTab('research')
-
-      const view = params.get('view')
-      if (view === 'search' || view === 'detail' || view === 'sectors' || view === 'projects' || view === 'trending') {
-        setResearchView(view)
-      }
-
-      const coin = params.get('coin')
-      if (coin) setSelectedCoinId(coin)
-    }
-  }, [])
 
   // URL 状态同步
-  const firstRender = useRef(true)
   useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return }
     const params = new URLSearchParams()
     if (activeTab !== 'signals') params.set('tab', activeTab)
     if (researchView !== 'sectors') params.set('view', researchView)

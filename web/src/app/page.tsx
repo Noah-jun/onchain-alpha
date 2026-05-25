@@ -2885,31 +2885,7 @@ async function getAllSignals(): Promise<any[]> {
 
     
 
-    // 批量获取 Cryptocompare 代币图片（对所有信号类型统一补充）
-    const allSignals = [...fundingSignals, ...liquidationSignals, ...anomalySignals, ...whaleSignals]
-    const uniqueSymbols = [...new Set(allSignals.map((s: any) => s.symbol).filter(Boolean))]
-    if (uniqueSymbols.length > 0) {
-      try {
-        const batchSize = 20
-        for (let i = 0; i < uniqueSymbols.length; i += batchSize) {
-          const batch = uniqueSymbols.slice(i, i + batchSize)
-          const res = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${batch.join(',')}&tsyms=USD`)
-          if (res.ok) {
-            const data = await res.json()
-            for (const sym of batch) {
-              const imgPath = data?.RAW?.[sym]?.USD?.IMAGEURL
-              if (imgPath) {
-                const imgUrl = `https://www.cryptocompare.com${imgPath}`
-                for (const s of allSignals) {
-                  if (s.symbol === sym && !s.image) s.image = imgUrl
-                }
-              }
-            }
-          }
-        }
-      } catch {}
-    }
-    return allSignals
+    return [...fundingSignals, ...liquidationSignals, ...anomalySignals, ...whaleSignals]
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 50)
 

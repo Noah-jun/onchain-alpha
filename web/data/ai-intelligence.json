@@ -1,11 +1,11 @@
 {
-  "reportTime": "18:30",
-  "date": "2025-03-27",
-  "summary": "市场整体平稳，但ETF持续净流出及巨鲸抛售ETH、ZEC空头加仓暗示短期风险加大。",
+  "reportTime": "12:00",
+  "date": "2025-03-21",
+  "summary": "市场整体波动平稳，但BTC/ETH ETF持续净流出，巨鲸活跃，HYPE和ZEC受关注。",
   "priceAlerts": [],
   "keyInfo": [
     {
-      "title": "比特币现货ETF昨日总净流出1.05亿美元，持续6日净流出",
+      "title": "比特币现货ETF连续6日净流出，昨日净流出1.05亿美元",
       "tags": [
         "资金流",
         "延续"
@@ -15,7 +15,7 @@
       "engagement": "高"
     },
     {
-      "title": "以太坊现货ETF昨日总净流出667.36万美元，持续10日净流出",
+      "title": "以太坊现货ETF持续10日净流出，昨日净流出667.36万美元",
       "tags": [
         "资金流",
         "延续"
@@ -25,17 +25,7 @@
       "engagement": "高"
     },
     {
-      "title": "a16z疑似地址24小时内再提超11万枚HYPE，累计持仓593万枚浮盈8672万美元",
-      "tags": [
-        "资金流",
-        "分析"
-      ],
-      "source": "Odaily",
-      "sourceUrl": "",
-      "engagement": "高"
-    },
-    {
-      "title": "某巨鲸过去一小时以2059美元均价抛售2万枚ETH，价值4118万美元",
+      "title": "a16z疑似地址24小时内再提超11万枚HYPE，累计持仓593万枚",
       "tags": [
         "资金流",
         "事件"
@@ -45,7 +35,7 @@
       "engagement": "高"
     },
     {
-      "title": "“1011内幕巨鲸”代理人开仓3447万美元ZEC空单，HYPE持仓增加",
+      "title": "1011内幕巨鲸代理人开仓3447万美元ZEC空单，增持HYPE",
       "tags": [
         "资金流",
         "事件"
@@ -57,26 +47,19 @@
   ],
   "watchlist": [
     {
-      "title": "Stripe发布MPP机器支付协议，AI Agent可自主完成支付集成",
+      "title": "巨鲸抛售2万枚ETH，价值4118万美元",
       "tags": [
-        "协议",
-        "新增"
-      ],
-      "source": "Odaily",
-      "sourceUrl": ""
-    },
-    {
-      "title": "日元稳定币公司JPYC完成约50亿日元系列B轮融资",
-      "tags": [
+        "资金流",
         "事件"
       ],
       "source": "Odaily",
       "sourceUrl": ""
     },
     {
-      "title": "Bitdeer本周出售201.6枚BTC，当前仍维持零持仓",
+      "title": "Bitdeer本周出售201.6枚BTC，维持零持仓",
       "tags": [
-        "资金流"
+        "资金流",
+        "事件"
       ],
       "source": "Odaily",
       "sourceUrl": ""
@@ -84,10 +67,10 @@
   ],
   "hotSectors": [
     "GameFi",
+    "DeFi",
     "隐私",
-    "AI代理",
-    "公链"
+    "NFT"
   ],
-  "generatedAt": 1779682808266,
+  "generatedAt": 1779683462824,
   "rawNews": []
 }

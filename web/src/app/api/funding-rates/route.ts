@@ -3,6 +3,7 @@
 // Node.js https 直接请求（避免 Next.js fetch 网络问题）
 
 import { NextResponse } from 'next/server'
+import { fetchImages } from '@/lib/cryptoImages'
 
 interface FundingSignal {
   symbol: string
@@ -107,6 +108,13 @@ export async function GET() {
     const topRate = signals[0]?.rate ?? 0
     console.log(`[Funding] ${signals.length} 条, ${signals.filter(s => s.abnormal).length} 条异常, ` +
       `最高: ${signals[0]?.symbol}@${signals[0]?.exchange} ${topRate >= 0 ? '+' : ''}${topRate.toFixed(4)}%`)
+
+    // 补充代币图片
+    const syms = [...new Set(signals.map(s => s.symbol))]
+    const images = await fetchImages(syms)
+    for (const s of signals) {
+      (s as any).image = images[s.symbol] || ''
+    }
 
     return NextResponse.json({
       signals,

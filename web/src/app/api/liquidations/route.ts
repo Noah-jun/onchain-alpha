@@ -3,6 +3,7 @@
 // 主源：Binance（不可达时使用推演数据）
 
 import { NextResponse } from 'next/server'
+import { fetchImages } from '@/lib/cryptoImages'
 
 interface LiquidationSignal {
   id: string; symbol: string; side: 'long' | 'short'
@@ -55,8 +56,13 @@ export async function GET() {
     return acc
   }, {} as Record<string, { totalValue: number; count: number; side: string }>)
 
+  // 补充代币图片
+  const liqSymbols = [...new Set(liquidations.slice(0, 20).map(l => l.symbol))]
+  const liqImages = await fetchImages(liqSymbols)
+  const liqWithImages = liquidations.slice(0, 20).map(l => ({ ...l, image: liqImages[l.symbol] || '' }))
+
   return NextResponse.json({
-    signals: liquidations.slice(0, 20),
+    signals: liqWithImages,
     bySymbol,
     totalLiquidations: liquidations.length,
     totalValue: liquidations.reduce((sum, l) => sum + l.totalValue, 0),

@@ -141,7 +141,7 @@ function WhaleContent({ signal }: { signal: WhaleSignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 代币头像 */}
-        <SignalAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} image={(signal as any).image} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -184,7 +184,7 @@ function FundingContent({ signal }: { signal: FundingSignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 代币头像 */}
-        <SignalAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} image={(signal as any).image} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -236,7 +236,7 @@ function LiquidationContent({ signal }: { signal: LiquidationSignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 代币头像 */}
-        <SignalAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} image={(signal as any).image} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

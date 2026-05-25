@@ -2,6 +2,7 @@
 // 本地动态数据生成 — 模拟交易所大额链上转账
 
 import { NextResponse } from 'next/server'
+import { fetchImages } from '@/lib/cryptoImages'
 
 // 交易所
 const EXCHANGES = ['Binance', 'Coinbase', 'Kraken', 'OKX', 'Bybit']
@@ -78,6 +79,13 @@ export async function GET() {
   }
 
   txs.sort((a, b) => b.timestamp - a.timestamp)
+
+  // 补充代币图片
+  const whaleSymbols = [...new Set(txs.map(t => t.symbol))]
+  const whaleImages = await fetchImages(whaleSymbols)
+  for (const t of txs) {
+    (t as any).image = whaleImages[t.symbol] || ''
+  }
 
   return NextResponse.json({
     signals: txs,

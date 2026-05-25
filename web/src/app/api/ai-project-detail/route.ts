@@ -216,9 +216,9 @@ export async function GET(request: Request) {
   if (!symbol) return NextResponse.json({ error: 'Missing symbol' }, { status: 400 })
 
   const suffix = depth === 'deep' ? '_deep' : '_quick'
-  const cacheTtl = depth === 'deep' ? 12 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+  // 深度报告不缓存，每次都直接调用 DeepSeek
   const cp = cachePath(symbol, suffix)
-  const cached = readCache(cp, cacheTtl)
+  const cached = depth === 'deep' ? null : readCache(cp, 24 * 60 * 60 * 1000)
   if (cached) return NextResponse.json(cached)
 
   const [realtime, news, localData] = await Promise.all([

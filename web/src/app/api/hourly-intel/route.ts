@@ -35,13 +35,13 @@ function readCache(): any {
     const p = hourCachePath()
     if (fs.existsSync(p)) {
       const raw = JSON.parse(fs.readFileSync(p, 'utf-8'))
-      if (Date.now() - raw.generatedAt < 60 * 60 * 1000) return raw
+      if (Date.now() - raw.generatedAt < 15 * 60 * 1000) return raw
     }
   } catch {}
   // 2. 内存缓存
   const memKey = hourKey()
   const mem = memCache.get(memKey)
-  if (mem && Date.now() - mem.ts < 60 * 60 * 1000) return mem.data
+  if (mem && Date.now() - mem.ts < 15 * 60 * 1000) return mem.data
   return null
 }
 
@@ -56,7 +56,7 @@ function writeCache(data: any) {
 }
 
 // 从 @hourintel 频道抓取最新一期情报
-async function fetchWizzIntel(): Promise<{ raw: string; hour: string; date: string } | null> {
+async function fetchWizzIntel(): Promise<{ latest: { raw: string; hour: string; date: string }; history: { raw: string; hour: string; date: string }[] } | null> {
   let html: string
   try {
     if (isVercel) {
@@ -71,30 +71,34 @@ async function fetchWizzIntel(): Promise<{ raw: string; hour: string; date: stri
         { timeout: 20000, encoding: 'utf-8' }
       )
     }
-    // 提取第一条消息
-    const match = html.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/)
-    if (!match || !match[1]) return null
-    let text = match[1]
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&#39;/g, "'")
-      .replace(/&quot;/g, '"')
-      .replace(/&#036;/g, '$')
-      .replace(/\s*─+\s*/g, '\n──────────────────\n')
-      .trim()
+    // 提取最新12条消息（页面按时间正序，最后12条即最近12小时）
+    const matches = [...html.matchAll(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/g)]
+    const latest = matches.slice(-12)
+    if (!latest.length) return null
 
-    // 提取小时和日期
-    const hourMatch = text.match(/📡\s*(\d+)点情报/)
-    const dateMatch = text.match(/🕐\s*(\d{4}-\d{2}-\d{2})/)
+    const results: { raw: string; hour: string; date: string }[] = []
+    for (const m of latest) {
+      let text = m[1]
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&#036;/g, '$')
+        .replace(/\s*─+\s*/g, '\n──────────────────\n')
+        .trim()
 
-    return {
-      raw: text,
-      hour: hourMatch ? `${hourMatch[1]}:00` : '',
-      date: dateMatch ? dateMatch[1] : '',
+      const hMatch = text.match(/📡\s*(\d+)点情报/)
+      const dMatch = text.match(/🕐\s*(\d{4}-\d{2}-\d{2})/)
+      results.push({
+        raw: text,
+        hour: hMatch ? `${hMatch[1]}:00` : '',
+        date: dMatch ? dMatch[1] : '',
+      })
     }
+    return { latest: results[results.length - 1], history: results.slice(0, -1) }
   } catch (e) {
     console.error('[Hourly Intel] Fetch wizz error:', e)
     return null
@@ -352,8 +356,18 @@ export async function GET(request: Request) {
 
   try {
     const wizz = await fetchWizzIntel()
-    if (wizz?.raw) {
-      const output = parseWizzIntel(wizz.raw, wizz.hour, wizz.date)
+    if (wizz?.latest?.raw) {
+      const output = parseWizzIntel(wizz.latest.raw, wizz.latest.hour, wizz.latest.date)
+      // 附加历史列表
+      if (wizz.history?.length) {
+        output.recentHours = wizz.history.map(h => ({
+          hour: h.hour,
+          date: h.date,
+          summary: parseWizzIntel(h.raw, h.hour, h.date).summary || {},
+          priceAnomalies: parseWizzIntel(h.raw, h.hour, h.date).priceAnomalies || [],
+          keyInfo: parseWizzIntel(h.raw, h.hour, h.date).keyInfo || [],
+        }))
+      }
       writeCache(output)
       return NextResponse.json(output)
     }

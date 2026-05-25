@@ -205,7 +205,8 @@ async function callDeepSeek(messages: any[], timeoutMs: number): Promise<string>
     })
     if (!res.ok) throw new Error(`DeepSeek ${res.status}`)
     const data = await res.json()
-    return data.choices?.[0]?.message?.content || '{}'
+    const msg = data.choices?.[0]?.message || {}
+    return msg.content || msg.reasoning_content || '{}'
   } finally { clearTimeout(timeoutId) }
 }
 

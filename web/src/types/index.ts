@@ -21,6 +21,7 @@ export interface AnomalySignal extends BaseSignal {
   type: 'anomaly'
   symbol: string
   icon: string
+  image: string
   price: number
   change5m: number      // 实际为 24h 涨跌幅
   change24h: number      // 振幅（高-低波动范围）

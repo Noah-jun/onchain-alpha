@@ -3,95 +3,128 @@
     {
       "rank": 1,
       "name": "AI",
-      "heat": 100,
-      "reason": "数据来源Odaily显示热度为100，且近期AI与区块链结合概念持续升温，众多项目涌现。",
-      "narrative": "AI与区块链深度融合，去中心化AI算力和模型市场成为焦点。",
+      "heat": "100",
+      "reason": "AI与区块链结合持续受资本追捧，Agent、DePIN+AI等新概念涌现",
+      "narrative": "去中心化AI基础设施、AI Agent与区块链融合",
       "keyProjects": [
-        "Render Network",
+        "Fetch.ai",
+        "SingularityNET",
         "Bittensor"
       ],
-      "trend": "stable",
-      "dataSources": [
-        "Odaily"
-      ]
+      "trend": "stable"
     },
     {
-      "rank": 2,
+      "rank": 1,
       "name": "DeFi",
-      "heat": 100,
-      "reason": "数据来源Odaily显示热度为100，DeFi作为加密基础赛道，持续有创新和资金流入。",
-      "narrative": "DeFi 2.0和收益优化策略推动生态发展。",
+      "heat": "100",
+      "reason": "DeFi仍是核心基础设施，TVL稳定，创新集中在收益分层与跨链",
+      "narrative": "去中心化金融基础设施，收益优化与跨链互操作",
       "keyProjects": [
         "Uniswap",
-        "Aave"
+        "Aave",
+        "Curve"
       ],
-      "trend": "stable",
-      "dataSources": [
-        "Odaily"
-      ]
+      "trend": "stable"
     },
     {
-      "rank": 3,
+      "rank": 1,
       "name": "Layer2",
-      "heat": 100,
-      "reason": "数据来源Odaily显示热度为100，以太坊扩容需求强劲，Layer2解决方案持续爆发。",
-      "narrative": "Layer2生态成熟，主流Rollup方案竞争白热化。",
+      "heat": "100",
+      "reason": "以太坊扩容需求持续，ZK-Rollup成为主流，生态项目丰富",
+      "narrative": "以太坊扩容解决方案，提升交易吞吐量降低费用",
       "keyProjects": [
         "Arbitrum",
-        "Optimism"
+        "Optimism",
+        "zkSync"
       ],
-      "trend": "stable",
-      "dataSources": [
-        "Odaily"
-      ]
+      "trend": "stable"
     },
     {
       "rank": 4,
+      "name": "Pre-IPO",
+      "heat": "88",
+      "reason": "合规化趋势下，代币化股权产品吸引传统投资者",
+      "narrative": "代币化私募股权，连接传统IPO市场",
+      "keyProjects": [
+        "Circle",
+        "Coinbase"
+      ],
+      "trend": "stable"
+    },
+    {
+      "rank": 5,
       "name": "Perp DEX",
-      "heat": 100,
-      "reason": "数据来源Odaily显示热度为100，去中心化永续合约交易所交易量创新高。",
-      "narrative": "链上衍生品交易成为新增长点，永续合约DEX崛起。",
+      "heat": "46",
+      "reason": "永续合约DEX竞争激烈，但近期热度下降",
+      "narrative": "去中心化永续合约交易",
       "keyProjects": [
         "dYdX",
         "GMX"
       ],
-      "trend": "stable",
-      "dataSources": [
-        "Odaily"
-      ]
+      "trend": "down"
     },
     {
-      "rank": 5,
+      "rank": 6,
+      "name": "RWA",
+      "heat": "44",
+      "reason": "真实资产代币化进展缓慢，但机构关注度不减",
+      "narrative": "将传统金融资产（债券、房地产）代币化上链",
+      "keyProjects": [
+        "Ondo Finance",
+        "Centrifuge"
+      ],
+      "trend": "stable"
+    },
+    {
+      "rank": 7,
+      "name": "Meme",
+      "heat": "24",
+      "reason": "热点轮动，Meme币炒作降温",
+      "narrative": "社区驱动的Meme代币",
+      "keyProjects": [
+        "Dogecoin",
+        "Pepe"
+      ],
+      "trend": "down"
+    },
+    {
+      "rank": 7,
       "name": "预测市场",
-      "heat": 100,
-      "reason": "数据来源Odaily显示热度为100，预测市场因政治事件和体育赛事热度提升。",
-      "narrative": "预测市场平台用户活跃，事件驱动型投注需求旺盛。",
+      "heat": "24",
+      "reason": "Polymarket等带动，但整体规模有限",
+      "narrative": "去中心化预测平台",
       "keyProjects": [
         "Polymarket",
         "Augur"
       ],
-      "trend": "stable",
-      "dataSources": [
-        "Odaily"
-      ]
+      "trend": "up"
     },
     {
-      "rank": 6,
-      "name": "Pre-IPO",
-      "heat": 96,
-      "reason": "数据来源Odaily显示热度为96，Pre-IPO代币化项目吸引传统资本关注。",
-      "narrative": "真实世界资产代币化(RWA)延伸至Pre-IPO股权。",
+      "rank": 9,
+      "name": "DePIN",
+      "heat": "8",
+      "reason": "物理基础设施网络概念长期化，短期热度低",
+      "narrative": "去中心化物理基础设施网络（共享带宽、存储等）",
       "keyProjects": [
-        "Republic Note",
-        "Securitize"
+        "Helium",
+        "Filecoin"
       ],
-      "trend": "stable",
-      "dataSources": [
-        "Odaily"
-      ]
+      "trend": "stable"
+    },
+    {
+      "rank": 9,
+      "name": "LSD/Restaking",
+      "heat": "8",
+      "reason": "早期炒作消退，实际采用有限",
+      "narrative": "流动性质押与再质押",
+      "keyProjects": [
+        "Lido",
+        "EigenLayer"
+      ],
+      "trend": "stable"
     }
   ],
-  "generatedAt": 1779456878235,
-  "expiresAt": 1779543278235,
+  "generatedAt": 1779674177975,
+  "expiresAt": 1779760577975,
   "source": "DeepSeek AI analysis based on real market data"
 }

@@ -1,25 +1,27 @@
 {
-  "reportTime": "12:00",
-  "date": "2025-06-12",
-  "summary": "市场整体平稳，比特币和以太坊ETF连续多日净流出，巨鲸抛售ETH并开仓ZEC空单，a16z持续增持HYPE，Stripe发布AI支付协议推动创新。",
+  "reportTime": "18:30",
+  "date": "2025-03-27",
+  "summary": "市场整体平稳，但ETF持续净流出及巨鲸抛售ETH、ZEC空头加仓暗示短期风险加大。",
   "priceAlerts": [],
   "keyInfo": [
     {
       "title": "比特币现货ETF昨日总净流出1.05亿美元，持续6日净流出",
       "tags": [
-        "资金流"
+        "资金流",
+        "延续"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483523",
+      "sourceUrl": "",
       "engagement": "高"
     },
     {
       "title": "以太坊现货ETF昨日总净流出667.36万美元，持续10日净流出",
       "tags": [
-        "资金流"
+        "资金流",
+        "延续"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483522",
+      "sourceUrl": "",
       "engagement": "高"
     },
     {
@@ -29,7 +31,7 @@
         "分析"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483513",
+      "sourceUrl": "",
       "engagement": "高"
     },
     {
@@ -39,63 +41,53 @@
         "事件"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483503",
-      "engagement": "中"
+      "sourceUrl": "",
+      "engagement": "高"
     },
     {
-      "title": "“1011内幕巨鲸”代理人Garrett Jin开仓3447万美元ZEC空单，HYPE持仓增加至68,560枚",
+      "title": "“1011内幕巨鲸”代理人开仓3447万美元ZEC空单，HYPE持仓增加",
       "tags": [
         "资金流",
-        "分析",
         "事件"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483520",
+      "sourceUrl": "",
       "engagement": "中"
     }
   ],
   "watchlist": [
     {
-      "title": "Stripe官方发布MPP机器支付协议，AI Agent可通过提示词自主完成支付设置及集成",
+      "title": "Stripe发布MPP机器支付协议，AI Agent可自主完成支付集成",
       "tags": [
         "协议",
         "新增"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483525"
+      "sourceUrl": ""
     },
     {
-      "title": "日元稳定币公司JPYC完成约50亿日元系列B轮融资，Life Design Fund等参投",
+      "title": "日元稳定币公司JPYC完成约50亿日元系列B轮融资",
       "tags": [
-        "融资",
-        "新增"
+        "事件"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483511"
+      "sourceUrl": ""
     },
     {
-      "title": "Bitmine入选2026年罗素3000指数初步名单，最终结果将于6月底确认",
+      "title": "Bitdeer本周出售201.6枚BTC，当前仍维持零持仓",
       "tags": [
-        "新增"
+        "资金流"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483506"
-    },
-    {
-      "title": "前Farcaster创始人、Tempo团队成员Dan Romero：Tempo或将在2年内实现去中心化，亚洲市场负责人已就位",
-      "tags": [
-        "治理"
-      ],
-      "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483526"
+      "sourceUrl": ""
     }
   ],
   "hotSectors": [
-    "Layer1/公链",
-    "DeFi",
+    "GameFi",
     "隐私",
-    "AI代理"
+    "AI代理",
+    "公链"
   ],
-  "generatedAt": 1779515130741,
+  "generatedAt": 1779682808266,
   "rawNews": []
 }

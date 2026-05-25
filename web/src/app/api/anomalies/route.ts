@@ -64,8 +64,10 @@ export async function GET() {
       if (Math.abs(change24h) <= 6 && amplitude <= 12) continue
 
       anomalySyms.push(id)
+      const imgPath = raw.IMAGEURL
       signals.push({
-        id: `anomaly-${id}`, symbol: id, name: id, image: '',
+        id: `anomaly-${id}`, symbol: id, name: id,
+        image: imgPath ? `https://www.cryptocompare.com${imgPath}` : '',
         price: raw.PRICE, change1h: 0, change4h: 0,
         change24h: parseFloat(change24h.toFixed(2)),
         amplitude: parseFloat(amplitude.toFixed(1)),

@@ -44,8 +44,16 @@ export default function SignalCard({ signal, onClick }: SignalCardProps) {
   )
 }
 
-// 代币头像：根据 symbol 生成带颜色的首字母图标
-function TokenAvatar({ symbol, size = 'md' }: { symbol: string; size?: 'sm' | 'md' | 'lg' }) {
+// 代币头像：有图片用图片，没有则生成渐变色首字母
+function SignalAvatar({ symbol, image, size = 'md' }: { symbol: string; image?: string; size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClass = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-14 h-14' : 'w-12 h-12'
+  if (image) {
+    return (
+      <div className={`${sizeClass} rounded-xl shrink-0 overflow-hidden bg-slate-100 flex items-center justify-center shadow-sm`}>
+        <img src={image} alt={symbol} className="w-full h-full object-contain" />
+      </div>
+    )
+  }
   const colors = [
     'from-indigo-400 to-indigo-600',
     'from-emerald-400 to-emerald-600',
@@ -59,10 +67,10 @@ function TokenAvatar({ symbol, size = 'md' }: { symbol: string; size?: 'sm' | 'm
     'from-teal-400 to-teal-600',
   ]
   const idx = Array.from(symbol).reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length
-  const sizeClass = size === 'sm' ? 'w-8 h-8 text-sm' : size === 'lg' ? 'w-14 h-14 text-xl' : 'w-12 h-12 text-lg'
+  const sizeInner = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-xl' : 'text-lg'
   return (
     <div className={`${sizeClass} rounded-xl bg-gradient-to-br ${colors[idx]} flex items-center justify-center shrink-0 shadow-sm`}>
-      <span className="font-bold text-white">{symbol.charAt(0).toUpperCase()}</span>
+      <span className={`font-bold text-white ${sizeInner}`}>{symbol.charAt(0).toUpperCase()}</span>
     </div>
   )
 }
@@ -77,7 +85,7 @@ function AnomalyContent({ signal }: { signal: AnomalySignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 左侧代币头像 */}
-        <TokenAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} image={signal.image} />
 
         {/* 中间内容 */}
         <div className="flex-1 min-w-0">
@@ -133,7 +141,7 @@ function WhaleContent({ signal }: { signal: WhaleSignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 代币头像 */}
-        <TokenAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -176,7 +184,7 @@ function FundingContent({ signal }: { signal: FundingSignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 代币头像 */}
-        <TokenAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -228,7 +236,7 @@ function LiquidationContent({ signal }: { signal: LiquidationSignal }) {
     <>
       <div className="flex items-start gap-4">
         {/* 代币头像 */}
-        <TokenAvatar symbol={signal.symbol} />
+        <SignalAvatar symbol={signal.symbol} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

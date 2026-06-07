@@ -1,14 +1,13 @@
 {
   "reportTime": "14:00",
-  "date": "2025-03-21",
-  "summary": "比特币及以太坊ETF持续净流出，市场情绪偏空；ZEC、HYPE获巨资关注，CoinGecko热门趋势显示游戏、AI、隐私赛道活跃。",
+  "date": "2025-03-25",
+  "summary": "市场整体平稳，比特币ETF连续6日净流出，以太坊ETF连续10日净流出；巨鲸开空ZEC，a16z持续增持HYPE；CoinGecko热门趋势浮现UDS、VVV等新面孔。",
   "priceAlerts": [],
   "keyInfo": [
     {
       "title": "比特币现货ETF昨日总净流出1.05亿美元，持续6日净流出",
       "tags": [
-        "资金流",
-        "分析"
+        "资金流"
       ],
       "source": "Odaily",
       "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483523",
@@ -17,79 +16,82 @@
     {
       "title": "以太坊现货ETF昨日总净流出667.36万美元，持续10日净流出",
       "tags": [
-        "资金流",
-        "分析"
+        "资金流"
       ],
       "source": "Odaily",
       "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483522",
       "engagement": "高"
     },
     {
-      "title": "某巨鲸过去一小时抛售2万枚ETH，价值4118万美元",
+      "title": "“1011内幕巨鲸”代理人开仓3447万美元ZEC空单，HYPE持仓增加",
       "tags": [
-        "资金流",
-        "事件"
+        "分析",
+        "资金流"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483503",
-      "engagement": "高"
+      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483520",
+      "engagement": "中"
     },
     {
-      "title": "a16z疑似地址24小时内再提超11万枚HYPE，累计持仓593万枚浮盈8672万美元",
+      "title": "a16z疑似地址再提超11万枚HYPE，累计持仓593万枚浮盈8672万美元",
       "tags": [
-        "资金流",
-        "分析"
+        "资金流"
       ],
       "source": "Odaily",
       "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483513",
       "engagement": "高"
     },
     {
-      "title": "“1011内幕巨鲸”代理人开仓3447万美元ZEC空单，HYPE持仓增加",
+      "title": "Bitdeer当前仍维持零持仓，本周出售201.6枚BTC",
       "tags": [
-        "资金流",
-        "事件"
+        "事件",
+        "资金流"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483520",
-      "engagement": "高"
+      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483527",
+      "engagement": "中"
     }
   ],
   "watchlist": [
     {
-      "title": "Stripe发布MPP机器支付协议，AI Agent可通过提示词自主支付",
+      "title": "Undeads Games (UDS) 进入CoinGecko热门趋势",
       "tags": [
-        "协议",
         "新增"
       ],
-      "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483525"
+      "source": "CoinGecko",
+      "sourceUrl": ""
     },
     {
-      "title": "日元稳定币公司JPYC完成约50亿日元系列B轮融资",
+      "title": "Venice Token (VVV) 进入CoinGecko热门趋势",
       "tags": [
-        "资金流",
-        "协议"
+        "新增"
       ],
-      "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483511"
+      "source": "CoinGecko",
+      "sourceUrl": ""
     },
     {
-      "title": "FBI：2025年美国加密货币自助终端欺诈损失超3.88亿美元",
+      "title": "Zcash (ZEC) 逼近关键阻力区间，分析师关注转折",
       "tags": [
-        "监管",
-        "安全"
+        "分析"
       ],
       "source": "Odaily",
-      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483507"
+      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483508"
+    },
+    {
+      "title": "某巨鲸抛售2万枚ETH，价值4118万美元",
+      "tags": [
+        "资金流"
+      ],
+      "source": "Odaily",
+      "sourceUrl": "https://www.odaily.news/zh-CN/newsflash/483503"
     }
   ],
   "hotSectors": [
-    "GameFi",
-    "Layer1",
-    "AI",
-    "隐私"
+    "L1",
+    "隐私",
+    "NFT",
+    "DeFi"
   ],
-  "generatedAt": 1779708238374,
+  "generatedAt": 1780384587828,
   "rawNews": []
 }

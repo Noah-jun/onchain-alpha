@@ -32,6 +32,15 @@ body {
   border-radius: 2px;
 }
 
+/* 滑入动画 */
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
 /* 信号卡片悬浮效果 */
 .signal-card {
   transition: all 0.2s ease;

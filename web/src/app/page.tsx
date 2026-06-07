@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/Header'
 
 import SignalCard from '@/components/SignalCard'
+import V4WalletPanel from '@/components/V4WalletPanel'
 
 import SignalDetail from '@/components/SignalDetail'
 
@@ -2583,6 +2584,12 @@ export default function Home() {
 
                 </button>
 
+                <button onClick={() => setActiveFilters(['v4-wallet'])} className={`px-3 py-1 rounded-full text-xs transition-colors ${activeFilters.includes('v4-wallet') ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+
+                  💰 V4 聪明钱包
+
+                </button>
+
               </div>
 
               <div className="text-xs text-slate-400 flex items-center gap-2">
@@ -2597,33 +2604,30 @@ export default function Home() {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-3 scrollbar-thin bg-slate-50/50">
 
-              {filteredSignals.length === 0 && !isLoading && (
+              {activeFilters.includes('v4-wallet') ? (
+                <V4WalletPanel />
+              ) : (
+                <>
+                  {activeFilters.length === 0 && (
+                    <V4WalletPanel />
+                  )}
 
-                <div className="text-center py-12 text-slate-400">
+                  {filteredSignals.length === 0 && !isLoading && (
+                    <div className="text-center py-12 text-slate-400">
+                      <p className="text-sm">暂无信号数据</p>
+                      <p className="text-xs mt-1">正在从各数据源获取...</p>
+                    </div>
+                  )}
 
-                  <p className="text-sm">暂无信号数据</p>
-
-                  <p className="text-xs mt-1">正在从各数据源获取...</p>
-
-                </div>
-
+                  {filteredSignals.map(signal => (
+                    <SignalCard
+                      key={signal.id}
+                      signal={signal}
+                      onClick={() => setSelectedSignal(signal)}
+                    />
+                  ))}
+                </>
               )}
-
-              
-
-              {filteredSignals.map(signal => (
-
-                <SignalCard
-
-                  key={signal.id}
-
-                  signal={signal}
-
-                  onClick={() => setSelectedSignal(signal)}
-
-                />
-
-              ))}
 
               {filteredSignals.length === 0 && isLoading && (
 

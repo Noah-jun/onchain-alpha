@@ -1,5 +1,5 @@
 // 信号类型
-export type SignalType = 'anomaly' | 'whale' | 'funding' | 'liquidation' | 'binance-alpha' | 'newlisting'
+export type SignalType = 'anomaly' | 'whale' | 'funding' | 'liquidation' | 'binance-alpha' | 'newlisting' | 'v4-wallet'
 
 // 风险等级
 export type RiskLevel = 'high' | 'medium' | 'low'
@@ -95,8 +95,30 @@ export interface NewListingSignal extends BaseSignal {
   isHot?: boolean
 }
 
+// V4 聪明钱包信号
+export interface V4WalletSignal extends BaseSignal {
+  type: 'v4-wallet'
+  symbol?: string
+  chain: string
+  tokenId: number
+  pair: string
+  token0: string
+  token1: string
+  token0Symbol: string
+  token1Symbol: string
+  fee: number
+  tickLower: number
+  tickUpper: number
+  liquidity: string
+  amount: string
+  amountUSD: string | null
+  isOpen: boolean
+  firstSeen: string
+  lastSeen: string
+}
+
 // 联合类型
-export type Signal = AnomalySignal | WhaleSignal | FundingSignal | LiquidationSignal | BinanceAlphaSignal | NewListingSignal
+export type Signal = AnomalySignal | WhaleSignal | FundingSignal | LiquidationSignal | BinanceAlphaSignal | NewListingSignal | V4WalletSignal
 
 // 市场数据
 export interface MarketData {

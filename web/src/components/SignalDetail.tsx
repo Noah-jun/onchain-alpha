@@ -160,15 +160,17 @@ export default function SignalDetail({ signal }: SignalDetailProps) {
 
       {/* 底部操作按钮 */}
       <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2">
-        <a 
-          href={getTradingViewLink(signal.symbol)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-        >
-          <ExternalLink className="w-4 h-4" />
-          查看TradingView走势
-        </a>
+        {signal.symbol && (
+          <a 
+            href={getTradingViewLink(signal.symbol)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 px-4 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <ExternalLink className="w-4 h-4" />
+            查看TradingView走势
+          </a>
+        )}
         <button className="w-full py-2 px-4 rounded-lg bg-slate-100 text-slate-700 text-sm font-medium hover:bg-slate-200 transition-colors">
           加入监控列表
         </button>

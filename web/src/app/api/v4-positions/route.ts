@@ -1,13 +1,22 @@
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 
-// 注意：Next.js 的 fetch 不走系统代理，pg 直连需要本地 PostgreSQL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/v4_watcher',
-  max: 3,
-});
-
 export async function GET() {
+  // 没有 DATABASE_URL 时返回空数据（Vercel 等无本地 PG 的环境）
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({
+      ok: true,
+      count: 0,
+      positions: [],
+      message: '未配置 DATABASE_URL，持仓数据不可用',
+    });
+  }
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 3,
+  });
+
   try {
     const result = await pool.query(`
       SELECT 
@@ -37,5 +46,7 @@ export async function GET() {
   } catch (err: any) {
     console.error('[v4-positions]', err.message);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } finally {
+    await pool.end();
   }
 }

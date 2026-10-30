@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { needsTranslation } from '@/domain/translate'
+import { decodeHtmlEntities, needsTranslation } from '@/domain/translate'
 import { researchHeaders } from '@/components/terminal/settings'
 
 const STORAGE_KEY = 'onchain-alpha.research.translate.v1'
@@ -98,10 +98,8 @@ export function useTranslatedCopy(parts: CopyPart[]) {
   }, [showing, stableParts])
 
   const anyTranslated = Object.values(hits).some((hit) => hit.status === 'translated')
-  const own = override === true
-  const inlineMessage = own
-    ? Object.values(hits).find((hit) => hit.status === 'unconfigured' || hit.status === 'error')?.message || ''
-    : ''
+  const failure = Object.values(hits).find((hit) => hit.status === 'unconfigured' || hit.status === 'error')
+  const inlineMessage = override === true || preferZh ? failure?.message || '' : ''
 
   return {
     needs,
@@ -110,8 +108,9 @@ export function useTranslatedCopy(parts: CopyPart[]) {
     inlineMessage,
     toggle: () => setOverride(!(override ?? preferZh)),
     view: (text: string) => {
-      if (!showing || !needsTranslation(text)) return text
-      return hits[text]?.translated || text
+      const translated = hits[text]?.translated
+      if (!showing || !needsTranslation(text) || !translated) return decodeHtmlEntities(text)
+      return decodeHtmlEntities(translated)
     },
   }
 }
@@ -153,7 +152,7 @@ function one(text: string): Promise<Hit> {
 }
 
 async function flush() {
-  const batch = waiters.splice(0, 40)
+  const batch = waiters.splice(0, 16)
   if (!batch.length) return
   const unique = [...new Set(batch.map((job) => job.text))]
   let byText = new Map<string, Hit>()
@@ -170,7 +169,7 @@ async function flush() {
     byText = new Map()
   }
   for (const job of batch) {
-    const hit = byText.get(job.text) ?? { text: job.text, translated: null, provider: null, status: 'error' as const, message: '翻译失败，原文仍保留。' }
+    const hit = byText.get(job.text) ?? { text: job.text, translated: null, provider: null, status: 'error' as const, message: '翻译请求失败，原文仍保留。' }
     if (hit.status === 'translated' && hit.translated) remember(hit)
     job.resolve(hit)
   }

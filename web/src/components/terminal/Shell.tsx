@@ -34,7 +34,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-md px-3 py-2 text-sm ${active(pathname, item.href) ? 'bg-neutral-950 font-semibold text-white' : 'font-medium text-neutral-600 hover:bg-white hover:text-neutral-950'}`}
+              data-active={active(pathname, item.href) ? 'true' : 'false'}
+              aria-current={active(pathname, item.href) ? 'page' : undefined}
+              className="px-3 py-2 text-sm"
             >
               {item.label}
             </Link>
@@ -51,17 +53,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link href="/" className="text-sm font-semibold">链上研究终端</Link>
             <Link href="/settings" className="text-xs text-neutral-900">设置</Link>
           </div>
-          <div className="flex gap-2 overflow-x-auto px-4 pb-3">
+          <nav className="flex gap-2 overflow-x-auto px-4 pb-3">
             {NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs ${active(pathname, item.href) ? 'bg-neutral-950 font-semibold text-white' : 'bg-[#f3f3f1] font-medium text-neutral-700 hover:bg-white'}`}
+                data-active={active(pathname, item.href) ? 'true' : 'false'}
+                aria-current={active(pathname, item.href) ? 'page' : undefined}
+                className="shrink-0 px-3 py-1 text-xs"
               >
                 {item.label}
               </Link>
             ))}
-          </div>
+          </nav>
         </div>
         <main className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>

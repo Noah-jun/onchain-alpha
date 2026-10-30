@@ -52,6 +52,31 @@ body {
   color: inherit;
 }
 
+.terminal nav a {
+  color: #404040;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.terminal nav a:hover {
+  background: #ffffff;
+  color: #171717;
+}
+
+.terminal nav a[data-active='true'],
+.terminal nav a[aria-current='page'] {
+  background: #d4d4d4;
+  color: #111111;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 #171717;
+}
+
+.terminal nav a[data-active='true']:hover,
+.terminal nav a[aria-current='page']:hover {
+  background: #c4c4c4;
+  color: #111111;
+}
+
 .terminal .num {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;

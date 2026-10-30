@@ -28,28 +28,17 @@ export function getSources() {
   return { items: listSources(), error: null as string | null }
 }
 
+const CORE_SYMBOLS = ['BTC', 'ETH', 'QQQ', 'SPX', 'CL']
+
 export async function getMarket(watchlist: string[]): Promise<MarketBoard> {
-  const symbols = [...new Set(watchlist.map(normalizeSymbol).filter(Boolean))]
+  const extras = watchlist.map(normalizeSymbol).filter(Boolean)
+  const symbols = [...new Set([...CORE_SYMBOLS, ...extras])]
   const [quotes, news, topics, funding, volatility] = await Promise.all([
-    symbols.length
-      ? loadQuotes(symbols)
-      : Promise.resolve({
-          quotes: [],
-          provenance: {
-            source: '自选',
-            sourceUrl: null,
-            fetchedAt: new Date().toISOString(),
-            updatedAt: null,
-            freshness: 'missing' as const,
-            mode: 'live' as const,
-            note: '自选为空，未请求行情。',
-          },
-          error: null,
-        }),
+    loadQuotes(symbols),
     loadNews(),
     loadTopics(),
     loadFunding(),
-    loadVolatility(symbols.filter((symbol) => symbol.endsWith('USDT'))),
+    loadVolatility(extras.filter((symbol) => symbol.endsWith('USDT'))),
   ])
   const bySymbol = new Map(quotes.quotes.map((quote) => [quote.symbol, quote]))
   const ordered = symbols.map((symbol) => bySymbol.get(symbol)).filter((quote): quote is Quote => Boolean(quote))

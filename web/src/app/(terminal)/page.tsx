@@ -25,11 +25,10 @@ export default function MarketPage() {
   return (
     <div>
       <PageIntro kicker="首页" title="市场看板">
-        只显示你添加的自选。可以是加密现货、永续合约或美股/指数。没有公开报价的代码不会加入。
+        加密资产和传统市场照常展示。原来的永续合约位置改为「我的关注」，默认为空，用 + 添加。每条价格都带来源、更新时间和数据模式。
       </PageIntro>
-      {settings ? <WatchlistBar settings={settings} onChange={update} /> : null}
-      {!settings || (settings.watchlist.length > 0 && loading && !data) ? <LoadingBlock /> : null}
-      {error && !data && settings?.watchlist.length ? <ErrorBlock message={error} onRetry={reload} /> : null}
+      {!settings || (loading && !data) ? <LoadingBlock /> : null}
+      {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data && settings ? <Board data={data} settings={settings} error={error} onChange={update} /> : null}
     </div>
   )
@@ -71,9 +70,9 @@ function WatchlistBar({ settings, onChange }: { settings: ClientSettings; onChan
   }
 
   return (
-    <div className="mb-6">
-      <button type="button" className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white" onClick={() => { setOpen(true); setMessage('') }}>
-        + 添加自选
+    <div>
+      <button type="button" className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white" onClick={() => { setOpen(true); setMessage('') }}>
+        + 添加
       </button>
       {open ? (
         <form className="mt-3 rounded-lg border border-[#e7e7e4] bg-white p-4" onSubmit={(event) => { event.preventDefault(); void addSymbol(input) }}>
@@ -110,37 +109,43 @@ function Board({ data, settings, error, onChange }: { data: MarketBoard; setting
   }
   return (
     <div className="space-y-6">
-      {settings.watchlist.length ? <DataNotice provenance={data.provenance} error={error || data.error} /> : null}
-      {settings.watchlist.length ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {settings.watchlist.map((symbol, index) => {
-            const quote = data.quotes.find((item) => item.symbol === symbol)
-            return (
-              <article key={symbol} className="rounded-lg border border-[#e7e7e4] bg-white p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <Link href={`/market/${symbol}`}>
-                    <p className="text-xs text-neutral-500">{quote ? classLabel(quote.assetClass) : '自选'}</p>
-                    <h3 className="mt-1 font-medium">{quote?.name || symbol}</h3>
-                  </Link>
-                  <div className="flex gap-1">
+      <DataNotice provenance={data.provenance} error={error || data.error} />
+      <QuoteGroup title="加密资产" quotes={data.quotes.filter((quote) => quote.assetClass === 'crypto' && ['BTC', 'ETH'].includes(quote.symbol))} />
+      <QuoteGroup title="传统市场" quotes={data.quotes.filter((quote) => quote.assetClass === 'traditional')} />
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-neutral-900">我的关注</h2>
+          <WatchlistBar settings={settings} onChange={onChange} />
+        </div>
+        {settings.watchlist.length ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {settings.watchlist.map((symbol, index) => {
+              const quote = data.quotes.find((item) => item.symbol === symbol)
+              return (
+                <article key={symbol} className="rounded-lg border border-[#e7e7e4] bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link href={`/market/${symbol}`}>
+                      <p className="text-xs text-neutral-500">{symbol}</p>
+                      <h3 className="mt-1 font-medium">{quote?.name || symbol}</h3>
+                    </Link>
+                    {quote?.provenance ? <Pills provenance={quote.provenance} /> : null}
+                  </div>
+                  <p className="num mt-4 text-2xl">{formatUsd(quote?.price ?? null)}</p>
+                  <div className="mt-2"><ChangeText value={quote?.change24h ?? null} /></div>
+                  <p className="mt-3 text-[11px] leading-5 text-neutral-500">
+                    {quote ? `${quote.provenance.source} · 更新 ${formatShanghai(quote.provenance.updatedAt)}` : '暂无数据'}
+                  </p>
+                  <div className="mt-3 flex gap-1">
                     <button type="button" aria-label={`上移 ${symbol}`} className="rounded-full bg-[#f3f3f1] px-2 py-1 text-xs" onClick={() => move(index, -1)}>↑</button>
                     <button type="button" aria-label={`下移 ${symbol}`} className="rounded-full bg-[#f3f3f1] px-2 py-1 text-xs" onClick={() => move(index, 1)}>↓</button>
                     <button type="button" aria-label={`移除 ${symbol}`} className="rounded-full bg-[#f3f3f1] px-2 py-1 text-xs" onClick={() => remove(symbol)}>移除</button>
                   </div>
-                </div>
-                {quote ? (
-                  <>
-                    <div className="mt-3"><Pills provenance={quote.provenance} /></div>
-                    <p className="num mt-4 text-2xl">{formatUsd(quote.price)}</p>
-                    <div className="mt-2"><ChangeText value={quote.change24h} /></div>
-                    <p className="mt-3 text-[11px] leading-5 text-neutral-500">{quote.provenance.source} · 更新 {formatShanghai(quote.provenance.updatedAt)}</p>
-                  </>
-                ) : <p className="mt-4 text-sm text-neutral-500">暂无数据</p>}
-              </article>
-            )
-          })}
-        </div>
-      ) : <EmptyBlock title="自选为空" detail="点上方的 + 添加标的。未添加时不会展示默认的指数或永续合约。" />}
+                </article>
+              )
+            })}
+          </div>
+        ) : <EmptyBlock title="我的关注为空" detail="点右上角 + 添加标的。这里只显示你添加的代码。" />}
+      </section>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="异常波动" extra={<Link className="text-xs underline" href="/volatility">全部</Link>}>
           {data.anomalies.length ? (
@@ -217,8 +222,31 @@ function Board({ data, settings, error, onChange }: { data: MarketBoard; setting
   )
 }
 
-function classLabel(assetClass: Quote['assetClass']) {
-  if (assetClass === 'perp') return '永续合约'
-  if (assetClass === 'traditional') return '传统市场'
-  return '加密现货'
+function QuoteGroup({ title, quotes }: { title: string; quotes: Quote[] }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-sm font-semibold text-neutral-900">{title}</h2>
+      {quotes.length ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {quotes.map((quote) => (
+            <Link key={quote.symbol} href={`/market/${quote.symbol}`} className="rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-neutral-500">{quote.symbol}</p>
+                  <h3 className="mt-1 font-medium">{quote.name}</h3>
+                </div>
+                <Pills provenance={quote.provenance} />
+              </div>
+              <p className="num mt-4 text-2xl">{formatUsd(quote.price)}</p>
+              <div className="mt-2"><ChangeText value={quote.change24h} /></div>
+              <p className="mt-3 text-[11px] leading-5 text-neutral-500">
+                {quote.provenance.source} · 更新 {formatShanghai(quote.provenance.updatedAt)}
+              </p>
+            </Link>
+          ))}
+        </div>
+      ) : <EmptyBlock title="暂无数据" />}
+    </section>
+  )
 }
+

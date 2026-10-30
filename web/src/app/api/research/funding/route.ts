@@ -3,6 +3,7 @@ import { getFundingBoard } from '@/research/service'
 import { FUNDING_THRESHOLD } from '@/domain/fundingLogic'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'hkg1'
 
 export async function GET() {
   const board = await getFundingBoard()

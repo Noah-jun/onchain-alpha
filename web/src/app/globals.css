@@ -21,9 +21,31 @@ body {
 }
 
 .terminal {
-  background: #0e141b;
-  color: #e8eef5;
+  background: #f6f6f4;
+  color: #171717;
   font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+}
+
+.terminal .card {
+  background: #fff;
+  border: 1px solid #e7e7e4;
+  border-radius: 20px;
+}
+
+.terminal input,
+.terminal select,
+.terminal textarea {
+  background: #fff;
+  border: 1px solid #e4e4e1;
+  border-radius: 16px;
+  color: #171717;
+}
+
+.terminal input:focus,
+.terminal textarea:focus {
+  outline: none;
+  border-color: #171717;
+  box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.06);
 }
 
 .terminal a {

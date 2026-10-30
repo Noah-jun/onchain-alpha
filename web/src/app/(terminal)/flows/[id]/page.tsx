@@ -12,7 +12,7 @@ export default function FlowDetailPage() {
   const { data, loading, error, reload } = useResearch<WhaleTransfer>(params.id ? `/api/research/flows/${params.id}` : null)
   return (
     <div>
-      <Link href="/flows" className="text-xs text-[#9aabbd]">← 资金异动</Link>
+      <Link href="/flows" className="text-xs text-neutral-500">← 资金异动</Link>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
@@ -21,7 +21,7 @@ export default function FlowDetailPage() {
             {formatShanghai(data.timestamp)} · {data.chain}
           </PageIntro>
           <DataNotice provenance={data.provenance} />
-          <dl className="grid gap-3 rounded-lg border border-[#2a3848] bg-[#141c26] p-4 text-sm md:grid-cols-2">
+          <dl className="grid gap-3 rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm md:grid-cols-2">
             <Item label="数量" value={formatAmount(data.amount)} />
             <Item label="美元价值" value={formatUsd(data.amountUsd)} />
             <Item label="方向" value={directionLabel(data.direction)} />
@@ -31,7 +31,7 @@ export default function FlowDetailPage() {
             <Item label="交易哈希" value={data.txHash || '暂无数据'} />
             <Item label="浏览器" value={data.explorerUrl ? <a className="underline" href={data.explorerUrl} target="_blank" rel="noreferrer">打开</a> : '未提供'} />
           </dl>
-          <p className="rounded-lg border border-[#2a3848] bg-[#141c26] p-4 text-sm leading-6">{data.attributionNote}</p>
+          <p className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm leading-6">{data.attributionNote}</p>
           <AnalysisCard note={data.analysis} />
           <ChatPanel
             context={{ type: 'flow', id: data.id }}
@@ -46,7 +46,7 @@ export default function FlowDetailPage() {
 function Item({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs text-[#9aabbd]">{label}</dt>
+      <dt className="text-xs text-neutral-500">{label}</dt>
       <dd className="mt-1 break-all">{value}</dd>
     </div>
   )

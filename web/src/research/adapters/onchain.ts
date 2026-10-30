@@ -1,17 +1,39 @@
 import type { FlowDirection, FlowObservation, Provenance, ResearchNote, WhaleTransfer } from '@/domain/types'
 import { DEMO_FLOWS } from '@/research/demo/catalog'
-import { resolveProvider } from '@/research/env'
+import { demoAllowed, envSet, missingKey } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
+import { loadLivePrints } from '@/research/publicMarkets'
 
-export async function loadFlows(): Promise<{ items: WhaleTransfer[]; provenance: Provenance; error: string | null }> {
-  const choice = resolveProvider('ONCHAIN_PROVIDER', ['whalealert'], 'WHALE_ALERT_API_KEY')
-  if (choice.kind === 'demo') {
-    return { items: DEMO_FLOWS, provenance: demoProvenance('演示链上样本'), error: null }
+export async function loadFlows(extra: string[] = []): Promise<{
+  items: WhaleTransfer[]
+  provenance: Provenance
+  onchainProvenance: Provenance
+  error: string | null
+}> {
+  if (demoAllowed()) {
+    const provenance = demoProvenance('演示链上样本', 'RESEARCH_ALLOW_DEMO=1，这些不是真实转账。')
+    return { items: DEMO_FLOWS, provenance, onchainProvenance: provenance, error: null }
   }
-  if (choice.kind === 'unconfigured') {
-    return { items: [], provenance: unconfiguredProvenance('链上大额转账', choice.reason), error: choice.reason }
+  const prints = await loadLivePrints(extra)
+  if (!envSet('WHALE_ALERT_API_KEY')) {
+    return {
+      items: prints.items,
+      provenance: prints.provenance,
+      onchainProvenance: unconfiguredProvenance('链上大额转账', missingKey('WHALE_ALERT_API_KEY')),
+      error: prints.error,
+    }
   }
+  const chain = await loadWhaleAlert()
+  return {
+    items: [...prints.items, ...chain.items],
+    provenance: prints.provenance,
+    onchainProvenance: chain.provenance,
+    error: prints.error,
+  }
+}
+
+async function loadWhaleAlert(): Promise<{ items: WhaleTransfer[]; provenance: Provenance; error: string | null }> {
   try {
     const key = process.env.WHALE_ALERT_API_KEY!.trim()
     const body = await fetchJson<{ result?: string; transactions?: WhaleAlertTx[]; message?: string }>(

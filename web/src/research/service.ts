@@ -20,8 +20,9 @@ import { loadNews, loadNewsItem } from '@/research/adapters/news'
 import { loadFlow, loadFlows } from '@/research/adapters/onchain'
 import { loadTopic, loadTopics } from '@/research/adapters/social'
 import { loadVolatility } from '@/research/adapters/volatility'
-import { CORE_SYMBOLS } from '@/research/demo/catalog'
 import { normalizeSymbol } from '@/research/env'
+
+const CORE_SYMBOLS = ['BTC', 'ETH', 'QQQ', 'SPX', 'CL']
 import { listSources } from '@/research/sources'
 
 export function getSources() {
@@ -38,15 +39,29 @@ export async function getMarket(perpSymbol: string, watchlist: string[]): Promis
     loadFunding(),
     loadVolatility([perp]),
   ])
-  const opportunities = opportunitiesFrom(funding.rates, funding.profiles, funding.provenance)
-  const extremes = funding.rates.filter((rate) => Math.abs(rate.ratePct) > 0.5)
-  const error = quotes.error || news.error || topics.error || funding.error || volatility.error
+  const ranked = [...funding.rates].sort((a, b) => Math.abs(b.ratePct) - Math.abs(a.ratePct))
+  const preview: FundingRate[] = []
+  const seen = new Set<string>()
+  for (const rate of ranked) {
+    const key = `${rate.exchange}:${rate.pair}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    preview.push(rate)
+    if (preview.length >= 5) break
+  }
+  const notices = [
+    news.provenance.mode === 'unconfigured' ? { id: 'news', message: news.provenance.note } : null,
+    topics.provenance.mode === 'unconfigured' ? { id: 'topics', message: topics.provenance.note } : null,
+  ].filter((item): item is { id: string; message: string } => item !== null)
+  const error = quotes.error || funding.error || volatility.error
   return {
     quotes: quotes.quotes,
     anomalies: volatility.items,
-    fundingExtremes: extremes,
+    scans: volatility.scans,
+    fundingExtremes: preview,
     headlines: news.items.slice(0, 4),
     topics: topics.items.slice(0, 4),
+    notices,
     provenance: quotes.provenance,
     error,
   }
@@ -92,9 +107,14 @@ export async function getFundingPair(pair: string) {
   return { pair: normalized, rates, opportunity, provenance: board.provenance, error: rates.length ? null : '暂无该交易对' }
 }
 
-export async function getFlows() {
-  const loaded = await loadFlows()
-  return { items: loaded.items, provenance: loaded.provenance, error: loaded.error }
+export async function getFlows(extra: string[] = []) {
+  const loaded = await loadFlows(extra)
+  return {
+    items: loaded.items,
+    provenance: loaded.provenance,
+    onchainProvenance: loaded.onchainProvenance,
+    error: loaded.error,
+  }
 }
 
 export async function getFlowById(id: string) {
@@ -104,7 +124,7 @@ export async function getFlowById(id: string) {
 export async function getVolatility(extra: string[] = []) {
   const loaded = await loadVolatility(extra)
   assertVolatilityRules(loaded.items)
-  return { items: loaded.items, provenance: loaded.provenance, error: loaded.error }
+  return { items: loaded.items, scans: loaded.scans, provenance: loaded.provenance, error: loaded.error }
 }
 
 export async function getVolatilityById(id: string) {

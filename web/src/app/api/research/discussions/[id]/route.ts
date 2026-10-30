@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDiscussion } from '@/research/service'
 
 export const dynamic = 'force-dynamic'
+export const preferredRegion = 'hkg1'
 
 export async function GET(_request: Request, context: { params: { id: string } }) {
   const topic = await getDiscussion(context.params.id)

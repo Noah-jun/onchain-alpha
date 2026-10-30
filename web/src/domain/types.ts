@@ -132,9 +132,9 @@ export interface FundingOpportunity {
   provenance: Provenance
 }
 
-export type FlowObservation = 'onchain_observed' | 'exchange_confirmed' | 'uncertain'
+export type FlowObservation = 'onchain_observed' | 'exchange_confirmed' | 'uncertain' | 'exchange_print'
 
-export type FlowDirection = 'deposit' | 'withdraw' | 'transfer' | 'unknown'
+export type FlowDirection = 'deposit' | 'withdraw' | 'transfer' | 'unknown' | 'buy' | 'sell'
 
 export interface WhaleTransfer {
   id: string
@@ -220,12 +220,23 @@ export interface ListEnvelope<T> {
   error: string | null
 }
 
+export interface MoveScan {
+  symbol: string
+  change5m: number
+  price: number | null
+  exchange: string
+  aboveThreshold: boolean
+  windowEnd: string
+}
+
 export interface MarketBoard {
   quotes: Quote[]
   anomalies: VolatilityAlert[]
+  scans: MoveScan[]
   fundingExtremes: FundingRate[]
   headlines: NewsArticle[]
   topics: DiscussionTopic[]
+  notices: { id: string; message: string }[]
   provenance: Provenance
   error: string | null
 }

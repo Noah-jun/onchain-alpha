@@ -42,15 +42,15 @@ export default function FundingPage() {
             <FilterButton pressed={filter === 'below'} onClick={() => setFilter('below')}>低于 -0.5%</FilterButton>
             <FilterButton pressed={filter === 'above'} onClick={() => setFilter('above')}>高于 0.5%</FilterButton>
           </div>
-          <label className="block text-xs text-[#9aabbd]">
+          <label className="block text-xs text-neutral-500">
             交易对或交易所
-            <input value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 w-full max-w-sm rounded border border-[#2a3848] bg-[#101820] px-3 py-2 text-sm" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 w-full max-w-sm rounded border border-[#e7e7e4] bg-[#f7f7f5] px-3 py-2 text-sm" />
           </label>
-          <p className="text-xs text-[#9aabbd]">命中阈值的交易对会保留全部交易所，方便对照。阈值是 {data.thresholdPct}% ，比较的是百分数而不是小数。</p>
+          <p className="text-xs text-neutral-500">命中阈值的交易对会保留全部交易所，方便对照。阈值是 {data.thresholdPct}% ，比较的是百分数而不是小数。</p>
           {rates.length ? (
-            <div className="overflow-x-auto rounded-lg border border-[#2a3848]">
+            <div className="overflow-x-auto rounded-lg border border-[#e7e7e4]">
               <table className="min-w-[760px] w-full text-left text-sm">
-                <thead className="text-xs text-[#9aabbd]">
+                <thead className="text-xs text-neutral-500">
                   <tr>
                     <th className="px-3 py-2 font-medium">交易对</th>
                     <th className="px-3 py-2 font-medium">交易所</th>
@@ -62,13 +62,13 @@ export default function FundingPage() {
                 </thead>
                 <tbody>
                   {rates.map((rate) => (
-                    <tr key={rate.id} className="border-t border-[#2a3848]">
+                    <tr key={rate.id} className="border-t border-[#e7e7e4]">
                       <td className="px-3 py-3"><Link className="underline" href={`/funding/${rate.pair}`}>{rate.pair}</Link></td>
                       <td className="px-3 py-3">{rate.exchange}</td>
                       <td className="px-3 py-3"><FundingText value={rate.ratePct} /></td>
                       <td className="px-3 py-3">{rate.period}</td>
                       <td className="num px-3 py-3">{formatUsd(rate.markPrice)}</td>
-                      <td className="px-3 py-3 text-xs text-[#9aabbd]">{formatShanghai(rate.updatedAt)}</td>
+                      <td className="px-3 py-3 text-xs text-neutral-500">{formatShanghai(rate.updatedAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -87,13 +87,13 @@ export default function FundingPage() {
 
 function OpportunityCard({ item }: { item: FundingOpportunity }) {
   return (
-    <Link href={`/funding/${item.id}`} className="block rounded-lg border border-[#2a3848] bg-[#141c26] p-4 hover:border-[#d6b27a]">
+    <Link href={`/funding/${item.id}`} className="block rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">{item.pair}</h3>
-        <span className="rounded bg-[#3a2c22] px-2 py-1 text-xs text-[#f0d7a2]">{item.label}</span>
+        <span className="rounded bg-[#f6f6f4] px-2 py-1 text-xs text-neutral-800">{item.label}</span>
       </div>
       <p className="mt-2 text-sm">费率差 {item.spreadPct.toFixed(4)} 个百分点 · {item.highExchange} {item.highRate.toFixed(4)}% / {item.lowExchange} {item.lowRate.toFixed(4)}%</p>
-      <p className="mt-2 text-xs leading-5 text-[#9aabbd]">缺失：{item.missing.length ? item.missing.join('、') : '样本里这些成本项已填写，仍不是无风险利润'}</p>
+      <p className="mt-2 text-xs leading-5 text-neutral-500">缺失：{item.missing.length ? item.missing.join('、') : '样本里这些成本项已填写，仍不是无风险利润'}</p>
     </Link>
   )
 }

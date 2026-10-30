@@ -1,6 +1,6 @@
 import type { DiscussionPost, DiscussionTopic, Provenance } from '@/domain/types'
 import { DEMO_TOPICS } from '@/research/demo/catalog'
-import { resolveProvider } from '@/research/env'
+import { demoAllowed, envSet, missingKey } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
@@ -10,16 +10,15 @@ export interface SocialAdapter {
 }
 
 export function getSocialAdapter(): SocialAdapter {
-  const choice = resolveProvider('SOCIAL_PROVIDER', ['x'], 'X_BEARER_TOKEN')
-  if (choice.kind === 'live') return new XRecentSearchAdapter()
-  if (choice.kind === 'unconfigured') return new UnconfiguredSocialAdapter(choice.reason)
-  return new DemoSocialAdapter()
+  if (demoAllowed()) return new DemoSocialAdapter()
+  if (!envSet('X_BEARER_TOKEN')) return new UnconfiguredSocialAdapter(missingKey('X_BEARER_TOKEN'))
+  return new XRecentSearchAdapter()
 }
 
 class DemoSocialAdapter implements SocialAdapter {
   id = 'demo-social'
   async listTopics() {
-    return { items: DEMO_TOPICS, provenance: demoProvenance('演示讨论表', '未配置合规 X API，当前为可替换的演示适配器'), error: null }
+    return { items: DEMO_TOPICS, provenance: demoProvenance('演示讨论表', 'RESEARCH_ALLOW_DEMO=1，这些帖文不是 X 上的实时内容。'), error: null }
   }
 }
 

@@ -46,7 +46,7 @@ export default function DiscussionsPage() {
   return (
     <div>
       <PageIntro kicker="讨论" title="热门讨论">
-        没有合规的 X API 时，这里使用可替换的演示适配器。演示帖不是平台上的真实帖文。
+        讨论来自 X 的 recent search。没有 Bearer Token 时这里保持未配置，不展示伪造帖文。
       </PageIntro>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
@@ -62,9 +62,9 @@ export default function DiscussionsPage() {
             ))}
           </div>
           {sorted.length ? (
-            <div className="overflow-x-auto rounded-lg border border-[#2a3848]">
+            <div className="overflow-x-auto rounded-lg border border-[#e7e7e4]">
               <table className="min-w-[760px] w-full text-left text-sm">
-                <thead className="text-xs text-[#9aabbd]">
+                <thead className="text-xs text-neutral-500">
                   <tr>
                     <Sortable label="话题" onClick={() => toggle('topic')} />
                     <Sortable label="日期" onClick={() => toggle('date')} />
@@ -77,7 +77,7 @@ export default function DiscussionsPage() {
                 </thead>
                 <tbody>
                   {sorted.map((topic) => (
-                    <tr key={topic.id} className="border-t border-[#2a3848]">
+                    <tr key={topic.id} className="border-t border-[#e7e7e4]">
                       <td className="px-3 py-3"><Link className="underline" href={`/discussions/${topic.id}`}>{topic.topic}</Link></td>
                       <td className="num px-3 py-3">{topic.date}</td>
                       <td className="px-3 py-3">{topic.category}</td>
@@ -91,7 +91,7 @@ export default function DiscussionsPage() {
               </table>
             </div>
           ) : <EmptyBlock title={data.provenance.mode === 'unconfigured' ? '未配置' : '暂无符合条件的讨论'} detail={data.provenance.note} />}
-          <p className="mt-3 text-xs text-[#9aabbd]">当前排序：{sortKey === 'heat' ? '热度' : sortKey === 'date' ? '日期' : sortKey === 'postCount' ? '帖文数' : '账号数'} {direction === 'desc' ? '从高到低' : '从低到高'}。</p>
+          <p className="mt-3 text-xs text-neutral-500">当前排序：{sortKey === 'heat' ? '热度' : sortKey === 'date' ? '日期' : sortKey === 'postCount' ? '帖文数' : '账号数'} {direction === 'desc' ? '从高到低' : '从低到高'}。</p>
         </>
       ) : null}
     </div>

@@ -41,24 +41,36 @@ function Board({ data, settings, error }: { data: MarketBoard; settings: ClientS
       <QuoteGroup title={`永续合约 · ${settings.perpSymbol}`} quotes={perp} watchlist={settings.watchlist} empty="设置里的永续代码没有返回报价。" />
       {extra.length ? <QuoteGroup title="自选中的其他代码" quotes={extra} watchlist={settings.watchlist} /> : null}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="异常波动摘要" extra={<Link className="text-xs text-[#d6b27a]" href="/volatility">全部</Link>}>
+        <Panel title="异常波动" extra={<Link className="text-xs underline" href="/volatility">全部</Link>}>
           {data.anomalies.length ? (
             <ul className="space-y-3 text-sm">
               {data.anomalies.slice(0, 4).map((alert) => (
                 <li key={alert.id}>
                   <Link href={`/volatility/${alert.id}`} className="flex items-center justify-between gap-3">
                     <span>{alert.symbol} <ChangeText value={alert.change5m} /></span>
-                    <span className="text-xs text-[#9aabbd]">{alert.status === 'verified' ? '三项核对通过' : '待确认异常'}</span>
+                    <span className="text-xs text-neutral-500">{alert.status === 'verified' ? '三项核对通过' : '待确认异常'}</span>
                   </Link>
                 </li>
               ))}
             </ul>
-          ) : <EmptyBlock title="暂无超过 10% 的 5 分钟波动" />}
+          ) : data.scans.length ? (
+            <div>
+              <p className="mb-3 text-xs text-neutral-500">已用公开 K 线计算。下面是绝对值最大的 5 分钟变化，都没有超过 10%，所以不是异常警报。</p>
+              <ul className="space-y-3 text-sm">
+                {data.scans.slice(0, 4).map((scan) => (
+                  <li key={scan.symbol} className="flex items-center justify-between gap-3">
+                    <span>{scan.symbol} · {scan.exchange}</span>
+                    <ChangeText value={scan.change5m} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : <EmptyBlock title="暂无 K 线" />}
         </Panel>
-        <Panel title="资金费率摘要" extra={<Link className="text-xs text-[#d6b27a]" href="/funding">全部</Link>}>
+        <Panel title="资金费率" extra={<Link className="text-xs underline" href="/funding">全部</Link>}>
           {data.fundingExtremes.length ? (
             <ul className="space-y-3 text-sm">
-              {data.fundingExtremes.slice(0, 5).map((rate) => (
+              {data.fundingExtremes.map((rate) => (
                 <li key={rate.id}>
                   <Link href={`/funding/${rate.pair}`} className="flex items-center justify-between gap-3">
                     <span>{rate.exchange} {rate.pair}</span>
@@ -67,17 +79,17 @@ function Board({ data, settings, error }: { data: MarketBoard; settings: ClientS
                 </li>
               ))}
             </ul>
-          ) : <EmptyBlock title="暂无绝对值超过 0.5% 的费率" />}
+          ) : <EmptyBlock title="暂无资金费率" />}
         </Panel>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="最新新闻" extra={<Link className="text-xs text-[#d6b27a]" href="/news">全部</Link>}>
-          <ul className="space-y-3 text-sm">
+        <Panel title="最新新闻" extra={<Link className="text-xs underline" href="/news">全部</Link>}>
+          {data.headlines.length ? <ul className="space-y-3 text-sm">
             {data.headlines.map((article) => (
               <li key={article.id}>
                 <Link href={`/news/${article.id}`}>
                   <span className="block">{article.title}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#9aabbd]">
+                  <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                     <span>{formatShanghai(article.publishedAt)}</span>
                     <Assets assets={article.analysis.relatedAssets} />
                     <HeatTags tags={article.analysis.heatTags} />
@@ -85,19 +97,19 @@ function Board({ data, settings, error }: { data: MarketBoard; settings: ClientS
                 </Link>
               </li>
             ))}
-          </ul>
+          </ul> : <EmptyBlock title={data.notices.find((item) => item.id === 'news')?.message || '暂无新闻'} />}
         </Panel>
-        <Panel title="最新讨论" extra={<Link className="text-xs text-[#d6b27a]" href="/discussions">全部</Link>}>
-          <ul className="space-y-3 text-sm">
+        <Panel title="最新讨论" extra={<Link className="text-xs underline" href="/discussions">全部</Link>}>
+          {data.topics.length ? <ul className="space-y-3 text-sm">
             {data.topics.map((topic) => (
               <li key={topic.id}>
                 <Link href={`/discussions/${topic.id}`} className="flex items-center justify-between gap-3">
                   <span>{topic.topic}</span>
-                  <span className="num text-xs text-[#9aabbd]">热度 {topic.heat}</span>
+                  <span className="num text-xs text-neutral-500">热度 {topic.heat}</span>
                 </Link>
               </li>
             ))}
-          </ul>
+          </ul> : <EmptyBlock title={data.notices.find((item) => item.id === 'topics')?.message || '暂无讨论'} />}
         </Panel>
       </div>
     </div>
@@ -107,21 +119,21 @@ function Board({ data, settings, error }: { data: MarketBoard; settings: ClientS
 function QuoteGroup({ title, quotes, watchlist, empty }: { title: string; quotes: Quote[]; watchlist: string[]; empty?: string }) {
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold text-[#d6b27a]">{title}</h2>
+      <h2 className="mb-3 text-sm font-semibold text-neutral-900">{title}</h2>
       {quotes.length ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {quotes.map((quote) => (
-            <Link key={`${title}-${quote.symbol}`} href={`/market/${quote.symbol}`} className="rounded-lg border border-[#2a3848] bg-[#141c26] p-4 hover:border-[#d6b27a]">
+            <Link key={`${title}-${quote.symbol}`} href={`/market/${quote.symbol}`} className="rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs text-[#9aabbd]">{quote.symbol}{watchlist.includes(quote.symbol) ? ' · 自选' : ''}</p>
+                  <p className="text-xs text-neutral-500">{quote.symbol}{watchlist.includes(quote.symbol) ? ' · 自选' : ''}</p>
                   <h3 className="mt-1 font-medium">{quote.name}</h3>
                 </div>
                 <Pills provenance={quote.provenance} />
               </div>
               <p className="num mt-4 text-2xl">{formatUsd(quote.price)}</p>
               <div className="mt-2"><ChangeText value={quote.change24h} /></div>
-              <p className="mt-3 text-[11px] leading-5 text-[#9aabbd]">
+              <p className="mt-3 text-[11px] leading-5 text-neutral-500">
                 {quote.provenance.source} · 更新 {formatShanghai(quote.provenance.updatedAt)}
               </p>
             </Link>

@@ -9,6 +9,7 @@ import { DataNotice, EmptyBlock, ErrorBlock, FilterButton, LoadingBlock, PageInt
 interface FlowResponse {
   items: WhaleTransfer[]
   provenance: WhaleTransfer['provenance']
+  onchainProvenance?: WhaleTransfer['provenance']
   error: string | null
 }
 
@@ -23,14 +24,15 @@ export default function FlowsPage() {
   })
   return (
     <div>
-      <PageIntro kicker="链上" title="资金异动">
-        链上观察到的转移和交易所确认的充值提现分开标。标签冲突或地址缺失时写明归属不确定。演示哈希不会链到区块浏览器。
+      <PageIntro kicker="成交与转账" title="资金异动">
+        默认展示交易所公开成交，并标明这不是链上充值或提现。链上大额转账只有配置了 Whale Alert 才会出现。
       </PageIntro>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
         <>
           <DataNotice provenance={data.provenance} error={data.error} />
+          {data.onchainProvenance ? <DataNotice provenance={data.onchainProvenance} /> : null}
           <div className="mb-3 flex flex-wrap gap-2">
             {[['全部', '全部'], ['onchain_observed', '链上已观察到'], ['exchange_confirmed', '交易所已确认'], ['uncertain', '归属不确定']].map(([value, label]) => (
               <FilterButton key={value} pressed={observation === value} onClick={() => setObservation(value)}>{label}</FilterButton>
@@ -45,13 +47,13 @@ export default function FlowsPage() {
             <ul className="space-y-3">
               {items.map((item) => (
                 <li key={item.id}>
-                  <Link href={`/flows/${item.id}`} className="block rounded-lg border border-[#2a3848] bg-[#141c26] p-4 hover:border-[#d6b27a]">
+                  <Link href={`/flows/${item.id}`} className="block rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h2 className="font-medium">{item.asset} · {formatAmount(item.amount)}</h2>
-                      <span className="text-xs text-[#f0d7a2]">{observationLabel(item.observation)}</span>
+                      <span className="text-xs text-neutral-800">{observationLabel(item.observation)}</span>
                     </div>
-                    <p className="mt-2 text-sm text-[#c5d0dc]">{directionLabel(item.direction)} · {formatUsd(item.amountUsd)} · {formatShanghai(item.timestamp)}</p>
-                    <p className="mt-2 text-xs leading-5 text-[#9aabbd]">{item.fromTag || item.fromAddress || '来源地址暂无'} → {item.toTag || item.toAddress || '去向暂无'}</p>
+                    <p className="mt-2 text-sm text-neutral-700">{directionLabel(item.direction)} · {formatUsd(item.amountUsd)} · {formatShanghai(item.timestamp)}</p>
+                    <p className="mt-2 text-xs leading-5 text-neutral-500">{item.fromTag || item.fromAddress || '来源地址暂无'} → {item.toTag || item.toAddress || '去向暂无'}</p>
                   </Link>
                 </li>
               ))}

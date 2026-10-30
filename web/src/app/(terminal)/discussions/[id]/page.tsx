@@ -12,7 +12,7 @@ export default function DiscussionDetailPage() {
   const { data, loading, error, reload } = useResearch<DiscussionTopic>(params.id ? `/api/research/discussions/${params.id}` : null)
   return (
     <div>
-      <Link href="/discussions" className="text-xs text-[#9aabbd]">← 热门讨论</Link>
+      <Link href="/discussions" className="text-xs text-neutral-500">← 热门讨论</Link>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
@@ -22,13 +22,13 @@ export default function DiscussionDetailPage() {
           </PageIntro>
           <DataNotice provenance={data.provenance} />
           <p className="text-sm leading-6"><Assets assets={data.assets} /> · <HeatTags tags={data.heatTags} /></p>
-          <p className="text-sm leading-7 text-[#c5d0dc]">{data.summary}</p>
+          <p className="text-sm leading-7 text-neutral-700">{data.summary}</p>
           <section className="space-y-3">
             {data.posts.map((post) => (
-              <article key={post.id} className="rounded-lg border border-[#2a3848] bg-[#141c26] p-4 text-sm">
-                <p className="text-xs text-[#9aabbd]">{post.author} · {formatShanghai(post.postedAt)} · {post.note}</p>
+              <article key={post.id} className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm">
+                <p className="text-xs text-neutral-500">{post.author} · {formatShanghai(post.postedAt)} · {post.note}</p>
                 <p className="mt-2 leading-6">{post.text}</p>
-                {post.url ? <a className="mt-2 inline-block text-xs underline" href={post.url} target="_blank" rel="noreferrer">原帖</a> : <p className="mt-2 text-xs text-[#9aabbd]">无外部链接</p>}
+                {post.url ? <a className="mt-2 inline-block text-xs underline" href={post.url} target="_blank" rel="noreferrer">原帖</a> : <p className="mt-2 text-xs text-neutral-500">无外部链接</p>}
               </article>
             ))}
           </section>

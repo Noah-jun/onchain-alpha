@@ -53,6 +53,7 @@ export function freshnessLabel(freshness: string): string {
 export function observationLabel(value: string): string {
   if (value === 'onchain_observed') return '链上已观察到'
   if (value === 'exchange_confirmed') return '交易所已确认'
+  if (value === 'exchange_print') return '交易所公开成交'
   return '归属不确定'
 }
 
@@ -60,6 +61,8 @@ export function directionLabel(value: string): string {
   if (value === 'deposit') return '转入交易所方向'
   if (value === 'withdraw') return '转出交易所方向'
   if (value === 'transfer') return '地址间转移'
+  if (value === 'buy') return '主动买入'
+  if (value === 'sell') return '主动卖出'
   return '方向未知'
 }
 

@@ -7,14 +7,27 @@ export function envSet(name: string): boolean {
   return Boolean(process.env[name]?.trim())
 }
 
+/** Demo fixtures stay off unless this exact flag is set. */
+export function demoAllowed(): boolean {
+  return process.env.RESEARCH_ALLOW_DEMO === '1'
+}
+
+export function missingKey(name: string): string {
+  return `未配置，需在 Vercel 环境变量设置 ${name}`
+}
+
 export function resolveProvider(envName: string, liveNames: string[], secretName?: string): ProviderChoice {
-  const raw = (process.env[envName] || 'demo').trim().toLowerCase()
-  if (!raw || raw === 'demo') return { kind: 'demo' }
+  if (demoAllowed()) return { kind: 'demo' }
+  const raw = (process.env[envName] || '').trim().toLowerCase()
+  if (secretName && !envSet(secretName)) {
+    return { kind: 'unconfigured', reason: missingKey(secretName) }
+  }
+  if (!raw) return { kind: 'live', provider: liveNames[0] }
+  if (raw === 'demo') {
+    return { kind: 'unconfigured', reason: '演示模式未打开。若要使用演示快照，请显式设置 RESEARCH_ALLOW_DEMO=1。' }
+  }
   if (!liveNames.includes(raw)) {
     return { kind: 'unconfigured', reason: `${envName}=${raw} 不是已实现的数据源` }
-  }
-  if (secretName && !envSet(secretName)) {
-    return { kind: 'unconfigured', reason: `已选择 ${raw}，但未配置 ${secretName}` }
   }
   return { kind: 'live', provider: raw }
 }

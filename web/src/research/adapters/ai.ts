@@ -1,6 +1,6 @@
 import type { AiAnswer, Citation, DataMode, Provenance } from '@/domain/types'
 import { RESEARCH_DISCLAIMER } from '@/domain/format'
-import { envSet } from '@/research/env'
+import { demoAllowed, envSet, missingKey } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
@@ -24,6 +24,18 @@ const TRADE_REQUEST = /无风险|稳赚|保证|必涨|一定涨|下单|开多|�
 const BROAD = /总结|概况|梳理|分析|解读|怎么样|有哪些|列出|概述|帮我看|说明|什么情况|详情|解读一下|看一下/
 
 export async function answerQuestion(message: string, bundle: GroundingBundle): Promise<AiAnswer> {
+  if (!envSet('AI_API_KEY') && !demoAllowed()) {
+    const reason = missingKey('AI_API_KEY')
+    return {
+      facts: [],
+      inferences: [],
+      unknowns: [reason],
+      risks: ['没有配置模型时不会生成研判，也不会用演示问答填空。'],
+      disclaimer: RESEARCH_DISCLAIMER,
+      citations: [],
+      provenance: unconfiguredProvenance('外部模型', reason),
+    }
+  }
   const ruled = ruleAnswer(message, bundle)
   if (!envSet('AI_API_KEY') || TRADE_REQUEST.test(message)) {
     return { ...ruled, provenance: analystProvenance(bundle.dataMode, false) }

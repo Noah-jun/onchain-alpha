@@ -35,7 +35,7 @@ export default function NewsPage() {
   return (
     <div>
       <PageIntro kicker="新闻" title="热点新闻">
-        每条演示或实时新闻都保留事件类型、资产、情绪、影响路径和置信依据。资产对不上时写未识别。
+        新闻来自 CryptoPanic。没有密钥时保持未配置。配上之后会保留事件类型、资产、情绪、影响路径和置信依据；资产对不上时写未识别。
       </PageIntro>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
@@ -43,9 +43,9 @@ export default function NewsPage() {
         <>
           <DataNotice provenance={data.provenance} error={data.error} />
           <div className="mb-4 space-y-3">
-            <label className="block text-xs text-[#9aabbd]">
+            <label className="block text-xs text-neutral-500">
               搜索标题或资产
-              <input value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 w-full rounded border border-[#2a3848] bg-[#101820] px-3 py-2 text-sm" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 w-full rounded border border-[#e7e7e4] bg-[#f7f7f5] px-3 py-2 text-sm" />
             </label>
             <div className="flex flex-wrap gap-2">
               {eventTypes.map((item) => <FilterButton key={item} pressed={eventType === item} onClick={() => setEventType(item)}>{item}</FilterButton>)}
@@ -63,14 +63,14 @@ export default function NewsPage() {
             <ul className="space-y-3">
               {filtered.map((article) => (
                 <li key={article.id}>
-                  <Link href={`/news/${article.id}`} className="block rounded-lg border border-[#2a3848] bg-[#141c26] p-4 hover:border-[#d6b27a]">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#9aabbd]">
+                  <Link href={`/news/${article.id}`} className="block rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
                       <span>{article.publisher} · {formatShanghai(article.publishedAt)}</span>
                       <span>{article.provenance.mode === 'demo' ? '演示' : article.provenance.mode === 'live' ? '实时' : '未配置'}</span>
                     </div>
                     <h2 className="mt-2 text-lg">{article.title}</h2>
-                    <p className="mt-2 text-sm leading-6 text-[#c5d0dc]">{article.summary}</p>
-                    <p className="mt-3 flex flex-wrap gap-3 text-xs text-[#9aabbd]">
+                    <p className="mt-2 text-sm leading-6 text-neutral-700">{article.summary}</p>
+                    <p className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-500">
                       <span>{article.analysis.eventType}</span>
                       <Assets assets={article.analysis.relatedAssets} />
                       <span>{article.analysis.sentiment}</span>

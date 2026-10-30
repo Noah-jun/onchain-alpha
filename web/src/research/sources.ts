@@ -1,74 +1,69 @@
 import type { SourceStatus } from '@/domain/types'
-import { envSet, resolveProvider } from '@/research/env'
+import { demoAllowed, envSet, missingKey } from '@/research/env'
 
 export function listSources(): SourceStatus[] {
-  const market = resolveProvider('RESEARCH_MARKET_PROVIDER', ['coingecko'])
-  const news = resolveProvider('NEWS_PROVIDER', ['cryptopanic'], 'NEWS_API_KEY')
-  const social = resolveProvider('SOCIAL_PROVIDER', ['x'], 'X_BEARER_TOKEN')
-  const funding = resolveProvider('FUNDING_PROVIDER', ['hyperliquid'])
-  const onchain = resolveProvider('ONCHAIN_PROVIDER', ['whalealert'], 'WHALE_ALERT_API_KEY')
-  const volatility = resolveProvider('VOLATILITY_PROVIDER', ['binance'])
-  const aiConfigured = envSet('AI_API_KEY')
-
+  const demo = demoAllowed()
   return [
-    source('market', '行情', market, '演示快照或 CoinGecko / Yahoo / Binance', '页面轮询，默认 60 秒', [
-      ['RESEARCH_MARKET_PROVIDER', 'demo 或 coingecko', true],
-      ['COINGECKO_API_KEY', '可选，公开接口不强制', envSet('COINGECKO_API_KEY')],
-    ]),
-    source('news', '新闻', news, news.kind === 'demo' ? '演示新闻适配器' : 'CryptoPanic', '建议 5 分钟', [
-      ['NEWS_PROVIDER', 'demo 或 cryptopanic', true],
-      ['NEWS_API_KEY', 'CryptoPanic token', envSet('NEWS_API_KEY')],
-    ]),
-    source('social', 'X 讨论', social, social.kind === 'demo' ? '演示讨论适配器（可替换）' : 'X recent search', '建议 5 分钟', [
-      ['SOCIAL_PROVIDER', 'demo 或 x', true],
-      ['X_BEARER_TOKEN', 'X API Bearer', envSet('X_BEARER_TOKEN')],
-    ]),
-    source('funding', '资金费率', funding, funding.kind === 'demo' ? '演示费率表' : 'Hyperliquid predictedFundings', '建议 60 秒', [
-      ['FUNDING_PROVIDER', 'demo 或 hyperliquid', true],
-    ]),
-    source('onchain', '链上大额转账', onchain, onchain.kind === 'demo' ? '演示链上样本' : 'Whale Alert', '建议 2 分钟', [
-      ['ONCHAIN_PROVIDER', 'demo 或 whalealert', true],
-      ['WHALE_ALERT_API_KEY', 'Whale Alert key', envSet('WHALE_ALERT_API_KEY')],
-    ]),
-    source('volatility', '5 分钟波动', volatility, volatility.kind === 'demo' ? '演示波动样本' : 'Binance 5 分钟 K 线', '建议 60 秒', [
-      ['VOLATILITY_PROVIDER', 'demo 或 binance', true],
-    ]),
+    liveSource('market', '行情', 'CoinGecko、Yahoo Finance、OKX、Bitget、Gate，Binance/Bybit 不可达时自动跳过', '约 45 秒缓存', [
+      ['COINGECKO_API_KEY', '可选。CoinGecko 免费接口不强制', envSet('COINGECKO_API_KEY')],
+    ], '默认使用免密钥公开接口。'),
+    keyedSource('news', '新闻', 'NEWS_API_KEY', 'CryptoPanic', '在 cryptopanic.com 的开发者页面创建 auth token。'),
+    keyedSource('social', 'X 讨论', 'X_BEARER_TOKEN', 'X API v2 recent search', '在 developer.x.com 创建应用并生成 Bearer Token。'),
+    liveSource('funding', '资金费率', 'Binance、Bybit、OKX、Gate、Bitget 公开资金费率', '约 45 秒缓存', [], '默认免密钥。Binance 返回 451 或 Bybit 返回 403 时，其余交易所仍会展示。'),
+    keyedSource('onchain', '链上大额转账', 'WHALE_ALERT_API_KEY', 'Whale Alert', '在 whale-alert.io 申请 API key。未配置时仍可看 OKX 公开成交。'),
+    liveSource('volatility', '5 分钟波动', 'OKX、Gate、Bitget、Binance、Bybit 的 5 分钟 K 线', '约 20 秒缓存', [], '绝对变化超过 10% 才记为异常，并由实际返回的交易所做核对。'),
     {
       id: 'ai',
-      name: '外部模型',
-      liveState: aiConfigured ? 'configured' : 'unconfigured',
-      displayMode: aiConfigured ? 'live' : 'demo',
-      adapter: aiConfigured ? 'OpenAI 兼容接口' : '应用内规则研判',
+      name: 'AI 对话',
+      liveState: envSet('AI_API_KEY') ? 'configured' : 'unconfigured',
+      displayMode: demo ? 'demo' : envSet('AI_API_KEY') ? 'live' : 'unconfigured',
+      adapter: envSet('AI_API_KEY') ? 'OpenAI 兼容接口' : '未连接',
       refreshHint: '随提问调用',
-      note: aiConfigured
-        ? '已配置密钥。模型只能在应用内引用上改写，新增数字会被丢弃。'
-        : '未配置 AI_API_KEY。页面仍可使用规则研判，它不会把演示写成实时。',
+      note: envSet('AI_API_KEY')
+        ? '已配置。模型只能在已拉取的数据上回答，新增数字会被丢掉。'
+        : demo
+          ? 'RESEARCH_ALLOW_DEMO=1，当前是演示研判。'
+          : missingKey('AI_API_KEY'),
       envVars: [
-        { name: 'AI_API_KEY', purpose: '外部模型密钥，只放在服务端', set: aiConfigured },
-        { name: 'AI_BASE_URL', purpose: '兼容 /chat/completions 的地址', set: envSet('AI_BASE_URL') },
-        { name: 'AI_MODEL', purpose: '模型名', set: envSet('AI_MODEL') },
+        { name: 'AI_API_KEY', purpose: '模型密钥，只放在 Vercel 服务端', set: envSet('AI_API_KEY') },
+        { name: 'AI_BASE_URL', purpose: '默认 https://api.openai.com/v1，兼容 /chat/completions', set: envSet('AI_BASE_URL') },
+        { name: 'AI_MODEL', purpose: '默认 gpt-4o-mini', set: envSet('AI_MODEL') },
       ],
     },
   ]
 }
 
-function source(
-  id: string,
-  name: string,
-  choice: ReturnType<typeof resolveProvider>,
-  adapter: string,
-  refreshHint: string,
-  envVars: [string, string, boolean][]
-): SourceStatus {
-  const unconfigured = choice.kind === 'unconfigured'
+function liveSource(id: string, name: string, adapter: string, refreshHint: string, envVars: [string, string, boolean][], note: string): SourceStatus {
+  const demo = demoAllowed()
   return {
     id,
     name,
-    liveState: choice.kind === 'live' ? 'configured' : 'unconfigured',
-    displayMode: unconfigured ? 'unconfigured' : choice.kind === 'live' ? 'live' : 'demo',
+    liveState: demo ? 'unconfigured' : 'configured',
+    displayMode: demo ? 'demo' : 'live',
     adapter,
     refreshHint,
-    note: unconfigured ? choice.reason : choice.kind === 'demo' ? '未切换到实时源，展示带标签的演示数据。' : '已选择实时适配器。失败时留空，不用演示数据填补。',
-    envVars: envVars.map(([envName, purpose, set]) => ({ name: envName, purpose, set })),
+    note: demo ? 'RESEARCH_ALLOW_DEMO=1，当前展示带标签的演示快照。' : note,
+    envVars: [
+      { name: 'RESEARCH_ALLOW_DEMO', purpose: '设为 1 才启用演示快照，默认关闭', set: demo },
+      ...envVars.map(([envName, purpose, set]) => ({ name: envName, purpose, set })),
+    ],
+  }
+}
+
+function keyedSource(id: string, name: string, secret: string, adapter: string, how: string): SourceStatus {
+  const demo = demoAllowed()
+  const set = envSet(secret)
+  return {
+    id,
+    name,
+    liveState: set ? 'configured' : 'unconfigured',
+    displayMode: demo ? 'demo' : set ? 'live' : 'unconfigured',
+    adapter: set ? adapter : '未连接',
+    refreshHint: '随页面请求',
+    note: demo ? 'RESEARCH_ALLOW_DEMO=1，当前是演示数据。' : set ? `已配置 ${secret}。${how}` : missingKey(secret),
+    envVars: [
+      { name: secret, purpose: how, set },
+      { name: 'RESEARCH_ALLOW_DEMO', purpose: '设为 1 才启用演示快照，默认关闭', set: demo },
+    ],
   }
 }

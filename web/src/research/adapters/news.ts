@@ -1,16 +1,16 @@
 import type { NewsArticle, Provenance, ResearchNote } from '@/domain/types'
 import { DEMO_NEWS } from '@/research/demo/catalog'
-import { resolveProvider } from '@/research/env'
+import { demoAllowed, envSet, missingKey } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
 export async function loadNews(): Promise<{ items: NewsArticle[]; provenance: Provenance; error: string | null }> {
-  const choice = resolveProvider('NEWS_PROVIDER', ['cryptopanic'], 'NEWS_API_KEY')
-  if (choice.kind === 'demo') {
-    return { items: DEMO_NEWS, provenance: demoProvenance('演示新闻稿'), error: null }
+  if (demoAllowed()) {
+    return { items: DEMO_NEWS, provenance: demoProvenance('演示新闻稿', 'RESEARCH_ALLOW_DEMO=1，这些是演示稿，不是实时新闻。'), error: null }
   }
-  if (choice.kind === 'unconfigured') {
-    return { items: [], provenance: unconfiguredProvenance('新闻', choice.reason), error: choice.reason }
+  if (!envSet('NEWS_API_KEY')) {
+    const reason = missingKey('NEWS_API_KEY')
+    return { items: [], provenance: unconfiguredProvenance('新闻', reason), error: reason }
   }
   try {
     const token = process.env.NEWS_API_KEY!.trim()

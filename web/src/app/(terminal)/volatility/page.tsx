@@ -9,6 +9,7 @@ import { ChangeText, DataNotice, EmptyBlock, ErrorBlock, FilterButton, LoadingBl
 
 interface VolResponse {
   items: VolatilityAlert[]
+  scans?: { symbol: string; change5m: number; exchange: string; aboveThreshold: boolean }[]
   provenance: VolatilityAlert['provenance']
   error: string | null
 }
@@ -50,18 +51,28 @@ export default function VolatilityPage() {
             <ul className="space-y-3">
               {items.map((item) => (
                 <li key={item.id}>
-                  <Link href={`/volatility/${item.id}`} className="block rounded-lg border border-[#2a3848] bg-[#141c26] p-4 hover:border-[#d6b27a]">
+                  <Link href={`/volatility/${item.id}`} className="block rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h2 className="font-medium">{item.name} · {item.symbol}</h2>
-                      <span className="text-xs text-[#f0d7a2]">{volStatusLabel(item.status)}</span>
+                      <span className="text-xs text-neutral-800">{volStatusLabel(item.status)}</span>
                     </div>
                     <p className="mt-2"><ChangeText value={item.change5m} /></p>
-                    <p className="mt-2 text-xs text-[#9aabbd]">{formatShanghai(item.windowStart)} – {formatShanghai(item.windowEnd)}</p>
+                    <p className="mt-2 text-xs text-neutral-500">{formatShanghai(item.windowStart)} – {formatShanghai(item.windowEnd)}</p>
                   </Link>
                 </li>
               ))}
             </ul>
-          ) : <EmptyBlock title={data.provenance.mode === 'unconfigured' ? '未配置' : '暂无符合条件的 5 分钟异常'} detail={data.provenance.note} />}
+          ) : (
+            <div className="space-y-3">
+              <EmptyBlock title="暂无超过 10% 的 5 分钟异常" detail={data.provenance.note} />
+              {(data.scans || []).slice(0, 8).map((scan) => (
+                <div key={scan.symbol} className="card flex items-center justify-between px-4 py-3 text-sm">
+                  <span>{scan.symbol} · {scan.exchange}</span>
+                  <span>{scan.aboveThreshold ? '超过阈值' : '未达 10% 阈值'} <ChangeText value={scan.change5m} /></span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       ) : null}
     </div>

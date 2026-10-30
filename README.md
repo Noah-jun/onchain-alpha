@@ -2,7 +2,7 @@
 
 加密资产与传统市场的研究辅助工具。默认中文界面，桌面优先，手机可用。它只整理来源、时间和不确定的地方，不自动下单，也不把模型输出写成投资建议。
 
-应用在 `web/`。没有密钥时使用带标签的演示快照；实时源失败时留空，显示「暂无数据」或「数据延迟」，不用演示数字冒充实时。
+应用在 `web/`。不配置任何密钥时，行情、资金费率和 5 分钟波动走免密钥公开接口。需要密钥的模块显示「未配置，需在 Vercel 环境变量设置 XXX」，不展示伪造数据。演示快照默认关闭，只有 `RESEARCH_ALLOW_DEMO=1` 才会启用，并会标明演示。
 
 ## 启动
 
@@ -30,37 +30,34 @@ npm start
 - 设置：数据源状态、刷新间隔、自选和永续代码
 - `/legacy`：原来的信号台
 
-## 环境变量
+## 数据源
 
-复制 `web/.env.example` 为 `web/.env`。全部保持 `demo` 即可运行。
+所有外部请求都在 Next.js route handler 里发出。`web/vercel.json` 把函数地区设为 `hkg1`，研究接口也声明了 `preferredRegion = hkg1`，用来避开 Binance 对美国 IP 的 HTTP 451。Binance 或 Bybit 失败时会改用 OKX、Gate、Bitget 等已成功的公开接口，失败的字段保持为空。
 
-| 变量 | 作用 |
-| --- | --- |
-| `RESEARCH_MARKET_PROVIDER` | `demo` 或 `coingecko` |
-| `COINGECKO_API_KEY` | 可选 |
-| `NEWS_PROVIDER` / `NEWS_API_KEY` | `cryptopanic` 需要密钥 |
-| `SOCIAL_PROVIDER` / `X_BEARER_TOKEN` | `x` 需要 Bearer |
-| `FUNDING_PROVIDER` | `demo` 或 `hyperliquid` |
-| `ONCHAIN_PROVIDER` / `WHALE_ALERT_API_KEY` | `whalealert` 需要密钥 |
-| `VOLATILITY_PROVIDER` | `demo` 或 `binance` |
-| `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` | 可选的 OpenAI 兼容接口 |
+| 模块 | 默认 | 环境变量 | 如何获取 |
+| --- | --- | --- | --- |
+| 行情 | 实时，免密钥 | `COINGECKO_API_KEY` 可选 | CoinGecko 现货、Yahoo Finance 传统资产、OKX/Bitget/Gate/Binance/Bybit 永续。密钥可在 coingecko.com 申请，不填也能用免费接口 |
+| 资金费率 | 实时，免密钥 | 无 | Binance `premiumIndex`、Bybit linear tickers、OKX funding-rate、Gate contracts、Bitget tickers |
+| 5 分钟波动 | 实时，免密钥 | 无 | 用上述交易所的 5 分钟 K 线计算。绝对变化超过 10% 才进入异常；核对不全标为待确认 |
+| 交易所成交 | 实时，免密钥 | 无 | OKX 永续公开成交。这不是链上充提 |
+| 链上转账 | 未配置 | `WHALE_ALERT_API_KEY` | https://whale-alert.io 申请 key |
+| 新闻 | 未配置 | `NEWS_API_KEY` | https://cryptopanic.com/developers/api/ 创建 token |
+| X 讨论 | 未配置 | `X_BEARER_TOKEN` | https://developer.x.com 创建应用并生成 Bearer Token |
+| AI 对话 | 未配置 | `AI_API_KEY`，可选 `AI_BASE_URL`、`AI_MODEL` | 任何兼容 `/chat/completions` 的密钥。不填时页面不会编造回答 |
+| 演示快照 | 关闭 | `RESEARCH_ALLOW_DEMO=1` | 只有显式设为 `1` 才启用，页面会标明演示 |
 
-把某个 `*_PROVIDER` 设成实时值但没配必需密钥时，该页显示「未配置」，不会显示成已连接。
-
-讨论数据走 `SocialAdapter`。默认是 `DemoSocialAdapter`；`SOCIAL_PROVIDER=x` 且有 Bearer 时换成 X recent search。
+复制 `web/.env.example` 为 `web/.env`，或在 Vercel 项目的 Environment Variables 里填写同名变量。不要把密钥交给浏览器。
 
 ## 已知限制
 
-- 演示快照的更新时间固定在 2026-10-29 08:00（Asia/Shanghai），所以会显示数据延迟。
-- 演示新闻、帖文、地址和交易哈希都是样本。哈希不链接到区块浏览器。
-- 资金费率差在手续费、价差、保证金、结算或风险缺失时标为「待验证的费率差」，不是无风险利润。
-- 5 分钟绝对变化不超过 10% 的窗口不会进异常列表。核对不全则为「待确认异常」。
-- 未配置外部模型时，助手只重组应用内已有字段，不会新编新闻、帖文、地址或价格。
-- 旧接口仍在 `web/src/app/api/`，新的研究数据在 `/api/research/*`。
+- 公开接口有缓存，大约 20–45 秒。失败时显示错误或暂无数据，不用演示数字填上。
+- 资金费率差缺少手续费、盘口、保证金或结算核验时，标为「待验证的费率差」，不是无风险利润。
+- 5 分钟绝对变化不超过 10% 的窗口会列在扫描结果里，但不会记成异常。
+- 时间显示为 Asia/Shanghai。
+- 旧接口仍在 `web/src/app/api/`，研究终端使用 `/api/research/*`。
 
 ## 下一步
 
-1. 按需要把 provider 改成实时源，并只在服务端保存密钥。
-2. 给费率差补上手续费、盘口和保证金，再决定是否还要标成待验证。
-3. 若要真实讨论，接入合规的 X API；在此之前保持演示适配器。
-4. 外部模型只能改写已经引用的内容。新增的数字会被丢掉，退回规则研判。
+1. 在 Vercel 配好 `NEWS_API_KEY`、`X_BEARER_TOKEN`、`WHALE_ALERT_API_KEY`、`AI_API_KEY` 后，对应页面会从「未配置」变成实时数据。
+2. 费率差要等手续费和盘口数据接入后，才有条件离开「待验证」。
+3. 部署时把项目根目录设为 `web`。

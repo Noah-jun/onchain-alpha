@@ -12,7 +12,7 @@ export default function VolatilityDetailPage() {
   const { data, loading, error, reload } = useResearch<VolatilityAlert>(params.id ? `/api/research/volatility/${params.id}` : null)
   return (
     <div>
-      <Link href="/volatility" className="text-xs text-[#9aabbd]">← 异常波动</Link>
+      <Link href="/volatility" className="text-xs text-neutral-500">← 异常波动</Link>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
@@ -21,7 +21,7 @@ export default function VolatilityDetailPage() {
             {formatShanghai(data.windowStart)} – {formatShanghai(data.windowEnd)}
           </PageIntro>
           <DataNotice provenance={data.provenance} />
-          <section className="rounded-lg border border-[#2a3848] bg-[#141c26] p-4">
+          <section className="rounded-lg border border-[#e7e7e4] bg-white p-4">
             <ChangeText value={data.change5m} />
             <p className="mt-2 text-sm">窗口价格：{formatUsd(data.price)}</p>
             <ul className="mt-4 space-y-2 text-sm">
@@ -43,9 +43,9 @@ export default function VolatilityDetailPage() {
 
 function Check({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
   return (
-    <li className="rounded bg-[#101820] p-3">
+    <li className="rounded bg-[#f7f7f5] p-3">
       <p>{ok ? '通过' : '未通过'} · {label}</p>
-      <p className="mt-1 text-xs leading-5 text-[#9aabbd]">{detail}</p>
+      <p className="mt-1 text-xs leading-5 text-neutral-500">{detail}</p>
     </li>
   )
 }

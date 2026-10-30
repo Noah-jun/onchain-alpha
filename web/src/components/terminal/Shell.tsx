@@ -34,7 +34,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-md px-3 py-2 text-sm ${active(pathname, item.href) ? 'bg-[#f3f3f1] text-white' : 'text-neutral-600 hover:bg-[#f3f3f1]'}`}
+              className={`rounded-md px-3 py-2 text-sm ${active(pathname, item.href) ? 'bg-neutral-950 font-semibold text-white' : 'font-medium text-neutral-600 hover:bg-white hover:text-neutral-950'}`}
             >
               {item.label}
             </Link>
@@ -56,7 +56,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs ${active(pathname, item.href) ? 'bg-neutral-950 text-white' : 'bg-[#f3f3f1] text-neutral-800'}`}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs ${active(pathname, item.href) ? 'bg-neutral-950 font-semibold text-white' : 'bg-[#f3f3f1] font-medium text-neutral-700 hover:bg-white'}`}
               >
                 {item.label}
               </Link>

@@ -8,6 +8,7 @@ export const preferredRegion = 'hkg1'
 export async function GET(request: NextRequest) {
   return withClientKeys(request, async () => {
   const extra = (request.nextUrl.searchParams.get('symbols') || '').split(',').filter(Boolean)
-  return NextResponse.json(await getFlows(extra))
+  const minUsd = Number(request.nextUrl.searchParams.get('minUsd') || '500000')
+  return NextResponse.json(await getFlows(extra, minUsd))
 })
 }

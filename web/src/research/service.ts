@@ -22,23 +22,37 @@ import { loadTopic, loadTopics } from '@/research/adapters/social'
 import { loadVolatility } from '@/research/adapters/volatility'
 import { normalizeSymbol } from '@/research/env'
 
-const CORE_SYMBOLS = ['BTC', 'ETH', 'QQQ', 'SPX', 'CL']
 import { listSources } from '@/research/sources'
 
 export function getSources() {
   return { items: listSources(), error: null as string | null }
 }
 
-export async function getMarket(perpSymbol: string, watchlist: string[]): Promise<MarketBoard> {
-  const perp = normalizeSymbol(perpSymbol || 'CLUSDT') || 'CLUSDT'
-  const symbols = [...new Set([...CORE_SYMBOLS, perp, ...watchlist.map(normalizeSymbol)].filter(Boolean))]
+export async function getMarket(watchlist: string[]): Promise<MarketBoard> {
+  const symbols = [...new Set(watchlist.map(normalizeSymbol).filter(Boolean))]
   const [quotes, news, topics, funding, volatility] = await Promise.all([
-    loadQuotes(symbols),
+    symbols.length
+      ? loadQuotes(symbols)
+      : Promise.resolve({
+          quotes: [],
+          provenance: {
+            source: '自选',
+            sourceUrl: null,
+            fetchedAt: new Date().toISOString(),
+            updatedAt: null,
+            freshness: 'missing' as const,
+            mode: 'live' as const,
+            note: '自选为空，未请求行情。',
+          },
+          error: null,
+        }),
     loadNews(),
     loadTopics(),
     loadFunding(),
-    loadVolatility([perp]),
+    loadVolatility(symbols.filter((symbol) => symbol.endsWith('USDT'))),
   ])
+  const bySymbol = new Map(quotes.quotes.map((quote) => [quote.symbol, quote]))
+  const ordered = symbols.map((symbol) => bySymbol.get(symbol)).filter((quote): quote is Quote => Boolean(quote))
   const ranked = [...funding.rates].sort((a, b) => Math.abs(b.ratePct) - Math.abs(a.ratePct))
   const preview: FundingRate[] = []
   const seen = new Set<string>()
@@ -55,7 +69,7 @@ export async function getMarket(perpSymbol: string, watchlist: string[]): Promis
   ].filter((item): item is { id: string; message: string } => item !== null)
   const error = quotes.error || funding.error || volatility.error
   return {
-    quotes: quotes.quotes,
+    quotes: ordered,
     anomalies: volatility.items,
     scans: volatility.scans,
     fundingExtremes: preview,
@@ -107,13 +121,30 @@ export async function getFundingPair(pair: string) {
   return { pair: normalized, rates, opportunity, provenance: board.provenance, error: rates.length ? null : '暂无该交易对' }
 }
 
-export async function getFlows(extra: string[] = []) {
+export async function getFlows(extra: string[] = [], minUsd = 500000) {
   const loaded = await loadFlows(extra)
+  const floor = Number.isFinite(minUsd) && minUsd >= 0 ? minUsd : 500000
+  let hiddenBelow = 0
+  let hiddenMissingAmount = 0
+  const items = loaded.items.filter((item) => {
+    if (item.amountUsd == null || !Number.isFinite(item.amountUsd)) {
+      hiddenMissingAmount += 1
+      return false
+    }
+    if (item.amountUsd < floor) {
+      hiddenBelow += 1
+      return false
+    }
+    return true
+  })
   return {
-    items: loaded.items,
+    items,
     provenance: loaded.provenance,
     onchainProvenance: loaded.onchainProvenance,
     error: loaded.error,
+    minUsd: floor,
+    hiddenBelow,
+    hiddenMissingAmount,
   }
 }
 
@@ -150,7 +181,7 @@ async function buildBundle(context: { type?: string; id?: string; perp?: string 
   if (type === 'flow' && id) return flowBundle(await getFlowById(id))
   if (type === 'volatility' && id) return volBundle(await getVolatilityById(id))
   if (type === 'market' && id) return quoteBundle(await getQuote(id))
-  return digestBundle(context.perp || 'CLUSDT')
+  return digestBundle()
 }
 
 function cite(id: string, source: string, title: string, url: string | null, updatedAt: string | null, mode: DataMode): Citation {
@@ -161,8 +192,8 @@ function point(text: string, citationIds: string[], keywords: string[]) {
   return { text, citationIds, keywords }
 }
 
-async function digestBundle(perp: string): Promise<GroundingBundle> {
-  const board = await getMarket(perp, [])
+async function digestBundle(): Promise<GroundingBundle> {
+  const board = await getMarket([])
   const funding = await getFundingBoard()
   const flows = await getFlows()
   const citations: Citation[] = []

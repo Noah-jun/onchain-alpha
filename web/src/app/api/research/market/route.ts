@@ -7,9 +7,8 @@ export const preferredRegion = 'hkg1'
 
 export async function GET(request: NextRequest) {
   return withClientKeys(request, async () => {
-  const perp = request.nextUrl.searchParams.get('perp') || 'CLUSDT'
   const watch = (request.nextUrl.searchParams.get('watch') || '').split(',').filter(Boolean)
-  const board = await getMarket(perp, watch)
+  const board = await getMarket(watch)
   return NextResponse.json(board)
 })
 }

@@ -24,13 +24,6 @@ export default function SettingsPage() {
     setSaved('已保存在这台浏览器')
   }
 
-  function addSymbol() {
-    const symbol = draft.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)
-    if (!symbol || settings.watchlist.includes(symbol)) return
-    save({ ...settings, watchlist: [...settings.watchlist, symbol] })
-    setDraft('')
-  }
-
   return (
     <div>
       <PageIntro kicker="设置" title="数据源与自选">
@@ -38,31 +31,30 @@ export default function SettingsPage() {
       </PageIntro>
       <KeyVault onChanged={() => void sourceState.reload()} />
       <section className="rounded-lg border border-[#e7e7e4] bg-white p-4">
-        <h2 className="text-sm font-semibold">看板上的永续代码</h2>
-        <p className="mt-2 text-xs leading-5 text-neutral-500">默认 CLUSDT。改成目录里没有的代码时，卡片显示暂无数据，不会编一个价格。</p>
-        <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); save({ ...settings, perpSymbol: draftPerp(settings.perpSymbol) }) }}>
+        <h2 className="text-sm font-semibold">资金异动最低金额</h2>
+        <p className="mt-2 text-xs leading-5 text-neutral-500">单笔美元名义价值低于这个数的不显示。没有美元金额的记录也无法确认，同样不显示。默认 500000。</p>
+        <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); const value = Number(draft || settings.flowMinUsd); save({ ...settings, flowMinUsd: Number.isFinite(value) && value >= 0 ? value : 500000 }); setDraft('') }}>
           <input
-            aria-label="永续代码"
-            value={settings.perpSymbol}
-            onChange={(event) => setSettings({ ...settings, perpSymbol: event.target.value.toUpperCase() })}
+            aria-label="资金异动最低美元金额"
+            inputMode="numeric"
+            value={draft}
+            placeholder={String(settings.flowMinUsd)}
+            onChange={(event) => setDraft(event.target.value.replace(/[^\d.]/g, ''))}
             className="rounded border border-[#e7e7e4] bg-white px-3 py-2 text-sm"
           />
-          <button type="submit" className="rounded bg-neutral-950 text-white px-4 py-2 text-sm text-white">保存永续代码</button>
+          <button type="submit" className="rounded-full bg-neutral-950 px-4 py-2 text-sm text-white">保存阈值</button>
         </form>
       </section>
       <section className="mt-4 rounded-lg border border-[#e7e7e4] bg-white p-4">
         <h2 className="text-sm font-semibold">自选</h2>
+        <p className="mt-2 text-xs text-neutral-500">在市场看板上用 + 添加。这里可以移除。</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {settings.watchlist.map((symbol) => (
+          {settings.watchlist.length ? settings.watchlist.map((symbol) => (
             <button key={symbol} type="button" className="rounded-full bg-[#f3f3f1] px-3 py-1 text-xs" onClick={() => save({ ...settings, watchlist: settings.watchlist.filter((item) => item !== symbol) })}>
               {symbol} · 移除
             </button>
-          ))}
+          )) : <p className="text-sm text-neutral-500">自选为空</p>}
         </div>
-        <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); addSymbol() }}>
-          <input value={draft} onChange={(event) => setDraft(event.target.value)} aria-label="添加自选代码" placeholder="例如 SOL" className="rounded border border-[#e7e7e4] bg-white px-3 py-2 text-sm" />
-          <button type="submit" className="rounded bg-[#f3f3f1] px-4 py-2 text-sm">添加</button>
-        </form>
       </section>
       <section className="mt-4 rounded-lg border border-[#e7e7e4] bg-white p-4">
         <h2 className="text-sm font-semibold">刷新间隔</h2>
@@ -165,6 +157,3 @@ function KeyVault({ onChanged }: { onChanged: () => void }) {
   )
 }
 
-function draftPerp(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20) || 'CLUSDT'
-}

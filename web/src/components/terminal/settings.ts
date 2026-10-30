@@ -2,14 +2,16 @@ export interface ClientSettings {
   perpSymbol: string
   watchlist: string[]
   refreshSeconds: number
+  flowMinUsd: number
 }
 
-export const SETTINGS_KEY = 'onchain-alpha.research.settings.v1'
+export const SETTINGS_KEY = 'onchain-alpha.research.settings.v2'
 
 export const DEFAULT_SETTINGS: ClientSettings = {
-  perpSymbol: 'CLUSDT',
-  watchlist: ['BTC', 'ETH', 'QQQ', 'SPX', 'CL', 'CLUSDT'],
+  perpSymbol: '',
+  watchlist: [],
   refreshSeconds: 60,
+  flowMinUsd: 500000,
 }
 
 export function readSettings(): ClientSettings {
@@ -18,12 +20,18 @@ export function readSettings(): ClientSettings {
     const raw = window.localStorage.getItem(SETTINGS_KEY)
     if (!raw) return DEFAULT_SETTINGS
     const parsed = JSON.parse(raw) as Partial<ClientSettings>
-    const perpSymbol = String(parsed.perpSymbol || DEFAULT_SETTINGS.perpSymbol).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)
+    const perpSymbol = String(parsed.perpSymbol || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)
     const watchlist = Array.isArray(parsed.watchlist)
       ? parsed.watchlist.map((item) => String(item).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)).filter(Boolean)
-      : DEFAULT_SETTINGS.watchlist
+      : []
     const refreshSeconds = [30, 60, 120, 300].includes(Number(parsed.refreshSeconds)) ? Number(parsed.refreshSeconds) : 60
-    return { perpSymbol: perpSymbol || 'CLUSDT', watchlist, refreshSeconds }
+    const flowMinUsd = Number(parsed.flowMinUsd)
+    return {
+      perpSymbol,
+      watchlist,
+      refreshSeconds,
+      flowMinUsd: Number.isFinite(flowMinUsd) && flowMinUsd >= 0 ? flowMinUsd : DEFAULT_SETTINGS.flowMinUsd,
+    }
   } catch {
     return DEFAULT_SETTINGS
   }

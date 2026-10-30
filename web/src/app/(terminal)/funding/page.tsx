@@ -19,11 +19,13 @@ export default function FundingPage() {
   const { data, loading, error, reload } = useResearch<FundingResponse>('/api/research/funding')
   const [filter, setFilter] = useState<FundingFilter>('all')
   const [query, setQuery] = useState('')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const rates = useMemo(() => {
     const matched = data ? filterRates(data.rates, filter) : []
     const needle = query.trim().toUpperCase()
-    return needle ? matched.filter((rate) => `${rate.pair} ${rate.exchange} ${rate.base}`.includes(needle)) : matched
-  }, [data, filter, query])
+    const filtered = needle ? matched.filter((rate) => `${rate.pair} ${rate.exchange} ${rate.base}`.includes(needle)) : matched
+    return [...filtered].sort((a, b) => sortDir === 'asc' ? a.ratePct - b.ratePct : b.ratePct - a.ratePct)
+  }, [data, filter, query, sortDir])
   const pairs = new Set(rates.map((rate) => rate.pair))
   const opportunities = (data?.opportunities ?? []).filter((item) => pairs.has(item.pair))
 
@@ -46,7 +48,12 @@ export default function FundingPage() {
             交易对或交易所
             <input value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 w-full max-w-sm rounded border border-[#e7e7e4] bg-[#f7f7f5] px-3 py-2 text-sm" />
           </label>
-          <p className="text-xs text-neutral-500">命中阈值的交易对会保留全部交易所，方便对照。阈值是 {data.thresholdPct}% ，比较的是百分数而不是小数。</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-neutral-500">命中阈值的交易对会保留全部交易所，方便对照。阈值是 {data.thresholdPct}% 。</p>
+            <button type="button" className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-semibold text-white" aria-pressed={sortDir === 'desc'} onClick={() => setSortDir((value) => value === 'desc' ? 'asc' : 'desc')}>
+              费率 {sortDir === 'desc' ? '↓ 从高到低' : '↑ 从低到高'}
+            </button>
+          </div>
           {rates.length ? (
             <div className="overflow-x-auto rounded-lg border border-[#e7e7e4]">
               <table className="min-w-[760px] w-full text-left text-sm">
@@ -54,7 +61,11 @@ export default function FundingPage() {
                   <tr>
                     <th className="px-3 py-2 font-medium">交易对</th>
                     <th className="px-3 py-2 font-medium">交易所</th>
-                    <th className="px-3 py-2 font-medium">费率</th>
+                    <th className="px-3 py-2 font-medium">
+                      <button type="button" className="font-semibold underline" aria-sort={sortDir === 'asc' ? 'ascending' : 'descending'} onClick={() => setSortDir((value) => value === 'desc' ? 'asc' : 'desc')}>
+                        费率 {sortDir === 'desc' ? '↓' : '↑'}
+                      </button>
+                    </th>
                     <th className="px-3 py-2 font-medium">结算周期</th>
                     <th className="px-3 py-2 font-medium">标记价</th>
                     <th className="px-3 py-2 font-medium">更新</th>

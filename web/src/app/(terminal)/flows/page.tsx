@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { WhaleTransfer } from '@/domain/types'
 import { directionLabel, formatAmount, formatShanghai, formatUsd, observationLabel } from '@/domain/format'
+import { readSettings } from '@/components/terminal/settings'
 import { DataNotice, EmptyBlock, ErrorBlock, FilterButton, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 
 interface FlowResponse {
@@ -11,10 +12,15 @@ interface FlowResponse {
   provenance: WhaleTransfer['provenance']
   onchainProvenance?: WhaleTransfer['provenance']
   error: string | null
+  minUsd?: number
+  hiddenBelow?: number
+  hiddenMissingAmount?: number
 }
 
 export default function FlowsPage() {
-  const { data, loading, error, reload } = useResearch<FlowResponse>('/api/research/flows')
+  const [minUsd, setMinUsd] = useState(500000)
+  useEffect(() => setMinUsd(readSettings().flowMinUsd), [])
+  const { data, loading, error, reload } = useResearch<FlowResponse>(`/api/research/flows?minUsd=${minUsd}`)
   const [observation, setObservation] = useState('全部')
   const [direction, setDirection] = useState('全部')
   const items = (data?.items ?? []).filter((item) => {
@@ -25,7 +31,7 @@ export default function FlowsPage() {
   return (
     <div>
       <PageIntro kicker="成交与转账" title="资金异动">
-        默认展示交易所公开成交，并标明这不是链上充值或提现。链上大额转账只有配置了 Whale Alert 才会出现。
+        只显示美元名义价值达到设置阈值的记录，默认 50 万美元。没有美元金额的记录无法确认，因此不显示。
       </PageIntro>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
@@ -33,6 +39,10 @@ export default function FlowsPage() {
         <>
           <DataNotice provenance={data.provenance} error={data.error} />
           {data.onchainProvenance ? <DataNotice provenance={data.onchainProvenance} /> : null}
+          <p className="mb-4 text-xs leading-5 text-neutral-500">
+            当前阈值 {formatUsd(data.minUsd ?? minUsd)}。低于阈值 {data.hiddenBelow ?? 0} 条已隐藏。
+            另有 {data.hiddenMissingAmount ?? 0} 条没有美元名义价值，无法确认是否达标，也已隐藏。
+          </p>
           <div className="mb-3 flex flex-wrap gap-2">
             {[['全部', '全部'], ['onchain_observed', '链上已观察到'], ['exchange_confirmed', '交易所已确认'], ['uncertain', '归属不确定']].map(([value, label]) => (
               <FilterButton key={value} pressed={observation === value} onClick={() => setObservation(value)}>{label}</FilterButton>

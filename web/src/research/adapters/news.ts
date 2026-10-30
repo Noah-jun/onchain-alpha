@@ -5,8 +5,15 @@ import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { loadDailyHotArticles, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
+import { recallItem, rememberItems } from '@/research/seenCache'
 
 export async function loadNews(): Promise<{ items: NewsArticle[]; provenance: Provenance; error: string | null }> {
+  const result = await collectNews()
+  if (result.items.length) await rememberItems('news', result.items)
+  return result
+}
+
+async function collectNews(): Promise<{ items: NewsArticle[]; provenance: Provenance; error: string | null }> {
   if (demoAllowed()) {
     return { items: DEMO_NEWS, provenance: demoProvenance('演示新闻稿', 'RESEARCH_ALLOW_DEMO=1，这些是演示稿，不是实时新闻。'), error: null }
   }
@@ -87,6 +94,8 @@ async function loadCryptoPanic(): Promise<{ items: NewsArticle[]; provenance: Pr
 }
 
 export async function loadNewsItem(id: string): Promise<NewsArticle | null> {
+  const cached = await recallItem<NewsArticle>('news', id)
+  if (cached) return cached
   const list = await loadNews()
   return list.items.find((item) => item.id === id) ?? null
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DiscussionTopic } from '@/domain/types'
 import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
+import { rememberSeen } from '@/components/terminal/seen'
 
 interface DiscussionResponse {
   items: DiscussionTopic[]
@@ -21,6 +22,9 @@ export default function DiscussionsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('heat')
   const [direction, setDirection] = useState<'desc' | 'asc'>('desc')
   const items = data?.items ?? []
+  useEffect(() => {
+    if (data?.items.length) rememberSeen('discussion', data.items)
+  }, [data])
   const categories = useMemo(() => ['全部', ...new Set(items.map((item) => item.category))], [items])
   const filtered = items.filter((item) => {
     if (category !== '全部' && item.category !== category) return false

@@ -2,22 +2,40 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import type { DiscussionTopic } from '@/domain/types'
 import { formatShanghai } from '@/domain/format'
 import { AnalysisCard, Assets, DataNotice, ErrorBlock, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 import { ChatPanel } from '@/components/terminal/ChatPanel'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
+import { recallSeen, tweetStatusUrl } from '@/components/terminal/seen'
 
 export default function DiscussionDetailPage() {
   const params = useParams<{ id: string }>()
   const { data, loading, error, reload } = useResearch<DiscussionTopic>(params.id ? `/api/research/discussions/${params.id}` : null)
+  const [saved, setSaved] = useState<DiscussionTopic | null>(null)
+  useEffect(() => {
+    setSaved(params.id ? recallSeen<DiscussionTopic>('discussion', params.id) : null)
+  }, [params.id])
+  const topic = data ?? (error ? saved : null)
+  const statusUrl = params.id ? tweetStatusUrl(params.id) : null
   return (
     <div>
       <Link href="/discussions" className="text-xs text-neutral-500">← 热门讨论</Link>
       <div className="mt-4"><TranslateAllToggle /></div>
-      {loading && !data ? <LoadingBlock /> : null}
-      {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
-      {data ? <DiscussionDetail topic={data} /> : null}
+      {loading && !topic ? <LoadingBlock /> : null}
+      {error && !topic ? (
+        <div>
+          <ErrorBlock message={error} onRetry={reload} />
+          {statusUrl ? <p className="mt-3 text-sm"><a className="underline" href={statusUrl} target="_blank" rel="noreferrer">在 X 上查看原帖</a></p> : null}
+        </div>
+      ) : null}
+      {topic ? (
+        <div className="space-y-3">
+          {error && saved && topic === saved ? <p className="text-xs text-neutral-500">最新列表里已经没有这条，下面是打开前保存在这台浏览器里的内容。</p> : null}
+          <DiscussionDetail topic={topic} />
+        </div>
+      ) : null}
     </div>
   )
 }

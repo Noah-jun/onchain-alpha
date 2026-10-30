@@ -7,6 +7,7 @@ import { formatShanghai, formatUsd } from '@/domain/format'
 import { readSettings, researchHeaders, writeSettings, type ClientSettings } from '@/components/terminal/settings'
 import { Assets, ChangeText, DataNotice, EmptyBlock, ErrorBlock, FundingText, HeatTags, LoadingBlock, PageIntro, Panel, Pills, useResearch } from '@/components/terminal/ui'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
+import { rememberSeen } from '@/components/terminal/seen'
 
 const SUGGESTIONS = ['BTC', 'ETH', 'SOL', 'SOLUSDT', 'QQQ', 'SPX', 'CL']
 
@@ -108,6 +109,10 @@ function Board({ data, settings, error, onChange }: { data: MarketBoard; setting
   function remove(symbol: string) {
     onChange({ ...settings, watchlist: settings.watchlist.filter((item) => item !== symbol) })
   }
+  useEffect(() => {
+    if (data.headlines.length) rememberSeen('news', data.headlines)
+    if (data.topics.length) rememberSeen('discussion', data.topics)
+  }, [data])
   return (
     <div className="space-y-6">
       <DataNotice provenance={data.provenance} error={error || data.error} />

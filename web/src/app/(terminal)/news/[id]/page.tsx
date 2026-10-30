@@ -2,23 +2,33 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import type { NewsArticle } from '@/domain/types'
 import { formatShanghai } from '@/domain/format'
 import { AnalysisCard, DataNotice, ErrorBlock, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 import { ChatPanel } from '@/components/terminal/ChatPanel'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
+import { recallSeen } from '@/components/terminal/seen'
 
 export default function NewsDetailPage() {
   const params = useParams<{ id: string }>()
   const { data, loading, error, reload } = useResearch<NewsArticle>(params.id ? `/api/research/news/${params.id}` : null)
+  const [saved, setSaved] = useState<NewsArticle | null>(null)
+  useEffect(() => {
+    setSaved(params.id ? recallSeen<NewsArticle>('news', params.id) : null)
+  }, [params.id])
+  const article = data ?? (error ? saved : null)
   return (
     <div>
       <Link href="/news" className="text-xs text-neutral-500">← 热点新闻</Link>
       <div className="mt-4"><TranslateAllToggle /></div>
-      {loading && !data ? <LoadingBlock /> : null}
-      {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
-      {data ? (
-        <NewsDetail article={data} />
+      {loading && !article ? <LoadingBlock /> : null}
+      {error && !article ? <ErrorBlock message={error} onRetry={reload} /> : null}
+      {article ? (
+        <div className="space-y-3">
+          {error && saved && article === saved ? <p className="text-xs text-neutral-500">最新列表里已经没有这条，下面是打开前保存在这台浏览器里的内容。</p> : null}
+          <NewsDetail article={article} />
+        </div>
       ) : null}
     </div>
   )

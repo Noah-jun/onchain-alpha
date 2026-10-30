@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { NewsArticle } from '@/domain/types'
 import { formatShanghai } from '@/domain/format'
 import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
+import { rememberSeen } from '@/components/terminal/seen'
 
 interface NewsResponse {
   items: NewsArticle[]
@@ -20,6 +21,9 @@ export default function NewsPage() {
   const [heat, setHeat] = useState('全部')
   const [query, setQuery] = useState('')
   const items = data?.items ?? []
+  useEffect(() => {
+    if (data?.items.length) rememberSeen('news', data.items)
+  }, [data])
   const eventTypes = useMemo(() => ['全部', ...new Set(items.map((item) => item.analysis.eventType))], [items])
   const sentiments = useMemo(() => ['全部', ...new Set(items.map((item) => item.analysis.sentiment))], [items])
   const filtered = items.filter((item) => {

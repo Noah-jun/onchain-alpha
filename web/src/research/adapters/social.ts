@@ -2,7 +2,8 @@ import type { DiscussionPost, DiscussionTopic, Provenance } from '@/domain/types
 import { DEMO_TOPICS } from '@/research/demo/catalog'
 import { canonicalUrl, contentFingerprint, dedupeByFingerprint, isLowValuePost } from '@/research/dedupe'
 import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
-import { loadOpenTwitterTopics, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
+import { loadOpenTwitterTopics, loadTweetById, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
+import { recallItem, rememberItems } from '@/research/seenCache'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
@@ -124,7 +125,9 @@ function dedupeTopics(items: DiscussionTopic[]): DiscussionTopic[] {
 }
 
 async function presentTopics(result: { items: DiscussionTopic[]; provenance: Provenance; error: string | null }) {
-  return { ...result, items: dedupeTopics(result.items) }
+  const items = dedupeTopics(result.items)
+  if (items.length) await rememberItems('discussion', items)
+  return { ...result, items }
 }
 
 export async function loadTopics() {
@@ -134,6 +137,7 @@ export async function loadTopics() {
       const items = await loadOpenTwitterTopics()
       const kept = dedupeTopics(items)
       if (kept.length) {
+        await rememberItems('discussion', kept)
         return {
           items: kept,
           provenance: kept[0].provenance,
@@ -164,6 +168,20 @@ export async function loadTopics() {
 }
 
 export async function loadTopic(id: string): Promise<DiscussionTopic | null> {
+  const twId = id.startsWith('tw-') ? id.slice(3) : ''
+  if (/^\d+$/.test(twId) && newsliquidConfigured()) {
+    try {
+      const topic = await loadTweetById(twId)
+      if (topic) {
+        await rememberItems('discussion', [topic])
+        return topic
+      }
+    } catch {
+      // The tweet endpoint can miss. The cache and the latest list are the next places to look.
+    }
+  }
+  const cached = await recallItem<DiscussionTopic>('discussion', id)
+  if (cached) return cached
   const list = await loadTopics()
   return list.items.find((item) => item.id === id) ?? null
 }

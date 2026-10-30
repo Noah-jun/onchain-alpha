@@ -22,6 +22,42 @@ export async function loadDailyHotArticles(): Promise<NewsArticle[]> {
   return rows.map(mapDaily).filter((item): item is NewsArticle => item !== null)
 }
 
+export async function loadTweetById(twId: string): Promise<DiscussionTopic | null> {
+  const { body } = await newsliquidRequest('/open/twitter_tweet_by_id', {
+    method: 'POST',
+    body: { twId },
+  })
+  const topic = firstTweet(unwrapData(body))
+  if (!topic) return null
+  return {
+    ...topic,
+    id: `tw-${twId}`,
+    provenance: {
+      ...topic.provenance,
+      note: 'POST /open/twitter_tweet_by_id',
+      sourceUrl: 'https://ai.6551.io/open/twitter_tweet_by_id',
+    },
+  }
+}
+
+function firstTweet(value: unknown): DiscussionTopic | null {
+  const direct = mapTweetTopic(value)
+  if (direct) return direct
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const topic = mapTweetTopic(item)
+      if (topic) return topic
+    }
+  }
+  const row = asRecord(value)
+  if (!row) return null
+  for (const key of ['tweet', 'status', 'data', 'tw']) {
+    const topic = mapTweetTopic(row[key])
+    if (topic) return topic
+  }
+  return null
+}
+
 export async function loadOpenTwitterTopics(): Promise<DiscussionTopic[]> {
   const search = await newsliquidRequest('/open/twitter_search', {
     method: 'POST',

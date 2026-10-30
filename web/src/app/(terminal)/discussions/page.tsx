@@ -1,123 +1,175 @@
 'use client'
 
-import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
-import type { DiscussionTopic } from '@/domain/types'
-import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
+import { useEffect, useState } from 'react'
+import { researchHeaders } from '@/components/terminal/settings'
+import { DataNotice, EmptyBlock, ErrorBlock, FilterButton, LoadingBlock, PageIntro } from '@/components/terminal/ui'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
-import { rememberSeen } from '@/components/terminal/seen'
+import type { TopicBoard, TopicCard, TopicKind } from '@/research/topicBoard'
 
-interface DiscussionResponse {
-  items: DiscussionTopic[]
-  provenance: DiscussionTopic['provenance']
-  error: string | null
-}
-
-type SortKey = 'heat' | 'postCount' | 'authorCount' | 'date' | 'topic'
+const FILTERS: Array<'全部' | TopicKind> = ['全部', '事件', 'Meme', '项目', '新东西']
 
 export default function DiscussionsPage() {
-  const { data, loading, error, reload } = useResearch<DiscussionResponse>('/api/research/discussions')
-  const [category, setCategory] = useState('全部')
-  const [heat, setHeat] = useState('全部')
-  const [sortKey, setSortKey] = useState<SortKey>('heat')
-  const [direction, setDirection] = useState<'desc' | 'asc'>('desc')
-  const items = data?.items ?? []
-  useEffect(() => {
-    if (data?.items.length) rememberSeen('discussion', data.items)
-  }, [data])
-  const categories = useMemo(() => ['全部', ...new Set(items.map((item) => item.category))], [items])
-  const filtered = items.filter((item) => {
-    if (category !== '全部' && item.category !== category) return false
-    if (heat === '社交热度高' && !item.heatTags.includes('社交热度高')) return false
-    if (heat === '基本面有支撑' && !item.heatTags.includes('基本面有支撑')) return false
-    if (heat === '未区分' && item.heatTags.length) return false
-    return true
-  })
-  const sorted = [...filtered].sort((a, b) => {
-    const left = sortKey === 'date' ? a.date : a[sortKey]
-    const right = sortKey === 'date' ? b.date : b[sortKey]
-    const compared = left < right ? -1 : left > right ? 1 : 0
-    return direction === 'asc' ? compared : -compared
-  })
+  const [board, setBoard] = useState<TopicBoard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('全部')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  function toggle(key: SortKey) {
-    if (sortKey === key) setDirection((value) => value === 'asc' ? 'desc' : 'asc')
-    else {
-      setSortKey(key)
-      setDirection(key === 'date' || key === 'heat' ? 'desc' : 'desc')
-    }
-  }
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch('/api/research/discussions/board', { cache: 'no-store', headers: researchHeaders() })
+      .then(async (response) => {
+        const json = await response.json() as TopicBoard
+        if (!response.ok) throw new Error(json.error || '加载失败')
+        if (!cancelled) {
+          setBoard(json)
+          setError('')
+          setSelectedId(json.items[0]?.id ?? null)
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : '加载失败')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const items = (board?.items ?? []).filter((item) => filter === '全部' || item.kind === filter)
+  const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
 
   return (
     <div>
       <PageIntro kicker="讨论" title="热门讨论">
-        优先使用 OpenTwitter。空内容、只发链接，以及规范化后相同的帖文只保留热度更高或更新的一条。没有 token 时显示未配置，不展示伪造帖文。英文帖文可以翻译成中文，原文仍可切换回来。
+        近期 X 上对象明确、有多人讨论的 Crypto 话题，默认最近 24 小时。热度只统计这次样本。英文内容可以用上方的翻译开关。
       </PageIntro>
       <TranslateAllToggle />
-      {loading && !data ? <LoadingBlock /> : null}
-      {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
-      {data ? (
+      {loading && !board ? <LoadingBlock /> : null}
+      {error && !board ? <ErrorBlock message={error} /> : null}
+      {board ? (
         <>
-          <DataNotice provenance={data.provenance} error={data.error} />
+          <DataNotice provenance={board.provenance} error={board.error} />
           <div className="mb-4 flex flex-wrap gap-2">
-            {categories.map((item) => <FilterButton key={item} pressed={category === item} onClick={() => setCategory(item)}>{item}</FilterButton>)}
-          </div>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {['全部', '社交热度高', '基本面有支撑', '未区分'].map((item) => (
-              <FilterButton key={item} pressed={heat === item} onClick={() => setHeat(item)}>{item}</FilterButton>
+            {FILTERS.map((item) => (
+              <FilterButton key={item} pressed={filter === item} onClick={() => setFilter(item)}>{item}</FilterButton>
             ))}
           </div>
-          {sorted.length ? (
-            <div className="overflow-x-auto rounded-lg border border-[#e7e7e4]">
-              <table className="min-w-[760px] w-full text-left text-sm">
-                <thead className="text-xs text-neutral-500">
-                  <tr>
-                    <Sortable label="话题" onClick={() => toggle('topic')} />
-                    <Sortable label="日期" onClick={() => toggle('date')} />
-                    <th className="px-3 py-2 font-medium">分类</th>
-                    <Sortable label="帖文" onClick={() => toggle('postCount')} />
-                    <Sortable label="账号" onClick={() => toggle('authorCount')} />
-                    <Sortable label="热度" onClick={() => toggle('heat')} />
-                    <th className="px-3 py-2 font-medium">资产 / 标签</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((topic) => (
-                    <tr key={topic.id} className="border-t border-[#e7e7e4]">
-                      <td className="px-3 py-3"><TopicCell topic={topic} /></td>
-                      <td className="num px-3 py-3">{topic.date}</td>
-                      <td className="px-3 py-3">{topic.category}</td>
-                      <td className="num px-3 py-3">{topic.postCount}</td>
-                      <td className="num px-3 py-3">{topic.authorCount}</td>
-                      <td className="num px-3 py-3">{topic.heat}</td>
-                      <td className="px-3 py-3"><Assets assets={topic.assets} /> <HeatTags tags={topic.heatTags} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {board.provenance.mode === 'unconfigured' ? (
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+              <EmptyBlock title="未接入 X 数据源" detail={board.provenance.note} />
+              <aside className="rounded-lg border border-[#e7e7e4] bg-white p-4">
+                <h2 className="text-sm font-medium">AI 解读未配置</h2>
+                <p className="mt-2 text-sm leading-6 text-neutral-600">没有可展示的话题，所以这里没有事实、社区观点或推断。接入 OpenTwitter 或 X API 之后，才会按真实帖文生成这一栏；没有 AI key 时也只列出帖文和核实结果。</p>
+              </aside>
             </div>
-          ) : <EmptyBlock title={data.provenance.mode === 'unconfigured' ? '未配置' : '暂无符合条件的讨论'} detail={data.provenance.note} />}
-          <p className="mt-3 text-xs text-neutral-500">当前排序：{sortKey === 'heat' ? '热度' : sortKey === 'date' ? '日期' : sortKey === 'postCount' ? '帖文数' : '账号数'} {direction === 'desc' ? '从高到低' : '从低到高'}。</p>
+          ) : items.length ? (
+            <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+              <ul className="space-y-3">
+                {items.map((topic) => (
+                  <li key={topic.id}>
+                    <TopicRow topic={topic} selected={selected?.id === topic.id} onSelect={() => setSelectedId(topic.id)} />
+                  </li>
+                ))}
+              </ul>
+              {selected ? <Reading key={selected.id} topic={selected} /> : null}
+            </div>
+          ) : <EmptyBlock title={filter === '全部' ? (board.emptyReason || '当前没有足够证据支持的热点') : '这个标签下没有话题'} detail={filter === '全部' ? board.provenance.note : '其他标签里可能还有话题。'} />}
         </>
       ) : null}
     </div>
   )
 }
 
-function TopicCell({ topic }: { topic: DiscussionTopic }) {
-  const copy = useTranslatedCopy([{ text: topic.topic, zh: topic.sourceZh }])
+function TopicRow({ topic, selected, onSelect }: { topic: TopicCard; selected: boolean; onSelect: () => void }) {
+  const copy = useTranslatedCopy([
+    { text: topic.title },
+    { text: topic.summary },
+  ])
   return (
-    <div>
-      <Link className="underline" href={`/discussions/${topic.id}`}>{copy.view(topic.topic)}</Link>
+    <article className={`rounded-lg border bg-white p-4 ${selected ? 'border-neutral-900' : 'border-[#e7e7e4]'}`}>
+      <button type="button" className="w-full text-left" onClick={onSelect} aria-pressed={selected}>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5">{topic.kind}</span>
+          <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5">{topic.credibility}</span>
+          <span className="num text-neutral-500">热度 {topic.heat}</span>
+        </div>
+        <h2 className="mt-2 text-base font-medium">{copy.view(topic.title)}</h2>
+        <p className="mt-2 text-sm leading-6 text-neutral-700">{copy.view(topic.summary)}</p>
+        {topic.summaryIsExcerpt ? <p className="mt-1 text-[11px] text-neutral-500">摘要摘自样本帖文，不是另写的结论。</p> : null}
+        <p className="mt-3 text-xs leading-5 text-neutral-500">
+          帖文 {topic.postCount} · 账号 {topic.authorCount} · {topic.heatNote}
+          {topic.trend ? ` · ${topic.trend}` : ' · 增速暂无数据'}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-neutral-500">{topic.credibilityNote}</p>
+      </button>
       <CopySwitch copy={copy} />
-    </div>
+    </article>
   )
 }
 
-function Sortable({ label, onClick }: { label: string; onClick: () => void }) {
+function Reading({ topic }: { topic: TopicCard }) {
+  const copy = useTranslatedCopy([
+    { text: topic.title },
+    { text: topic.summary },
+    ...topic.posts.slice(0, 4).map((post) => ({ text: post.text })),
+    ...topic.interpretation.community.map((text) => ({ text })),
+  ])
+  const view = (text: string) => copy.view(text)
+  const ai = topic.interpretation
   return (
-    <th className="px-3 py-2 font-medium">
-      <button type="button" className="underline" onClick={onClick}>{label}</button>
-    </th>
+    <aside className="rounded-lg border border-[#e7e7e4] bg-white p-4 lg:sticky lg:top-4">
+      <p className="text-xs text-neutral-500">{topic.kind} · {topic.credibility}</p>
+      <h2 className="mt-1 text-lg font-medium">{view(topic.title)}</h2>
+      {ai.configured ? <p className="mt-2 text-xs text-neutral-500">右侧文字按事实、社区观点和 AI 推断分开。来源链接只保留本次数据里出现过的 URL。</p> : <p className="mt-2 text-sm font-medium">AI 解读未配置</p>}
+      <CopySwitch copy={copy} />
+      {topic.newReason ? <p className="mt-3 text-xs leading-5 text-neutral-600">新的依据：{topic.newReason}</p> : null}
+      {topic.contractNote ? <p className="mt-2 text-xs leading-5 text-neutral-600">合约：{topic.contractStatus}。{topic.contractNote}</p> : null}
+      <Block title="已核实事实" items={ai.facts} empty="暂无已核实事实" />
+      <Block title="社区主要观点" items={ai.community.map(view)} empty="样本里没有可引用的帖文" hint="未配置 AI 时，这里是帖文原句，不是解读。" />
+      <Block title="话题升温原因" items={ai.whyHot} empty={ai.configured ? '模型没有给出升温原因' : '未生成。没有配置 AI key。'} />
+      <Block title="可能影响" items={ai.impact} empty={ai.configured ? '模型没有给出影响' : '未生成。没有配置 AI key。'} />
+      <Block title="尚未确认的信息" items={ai.unconfirmed} empty="没有单独列出的缺口" />
+      <Block title="后续观察点" items={ai.watch} empty={ai.configured ? '模型没有给出观察点' : '未生成。没有配置 AI key。'} />
+      <Block title="AI 推断" items={ai.inferences} empty={ai.configured ? '没有单独的推断' : '未生成。没有配置 AI key。'} />
+      <Block title="营销或异常传播迹象" items={ai.marketing} empty="样本里没有触发刷量或重复营销规则。" />
+      <div className="mt-4">
+        <h3 className="text-xs text-neutral-500">来源链接</h3>
+        {ai.sources.length ? (
+          <ul className="mt-2 space-y-1 text-sm">
+            {ai.sources.map((item) => (
+              <li key={item.url}><a className="underline" href={item.url} target="_blank" rel="noreferrer">{item.label}</a></li>
+            ))}
+          </ul>
+        ) : <p className="mt-2 text-sm text-neutral-500">这些帖文没有返回可打开的链接。</p>}
+      </div>
+      <div className="mt-4">
+        <h3 className="text-xs text-neutral-500">样本帖文</h3>
+        <ul className="mt-2 space-y-2">
+          {topic.posts.slice(0, 4).map((post) => (
+            <li key={post.id} className="rounded bg-[#f7f7f5] p-3 text-sm leading-6">
+              <p className="text-xs text-neutral-500">{post.author}{post.likes != null ? ` · 赞 ${post.likes}` : ''}</p>
+              <p className="mt-1">{view(post.text)}</p>
+              {post.url ? <a className="mt-1 inline-block text-xs underline" href={post.url} target="_blank" rel="noreferrer">原帖</a> : null}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  )
+}
+
+function Block({ title, items, empty, hint }: { title: string; items: string[]; empty: string; hint?: string }) {
+  return (
+    <div className="mt-4">
+      <h3 className="text-xs text-neutral-500">{title}</h3>
+      {hint ? <p className="mt-1 text-[11px] text-neutral-500">{hint}</p> : null}
+      {items.length ? (
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-6">
+          {items.map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      ) : <p className="mt-1 text-sm text-neutral-500">{empty}</p>}
+    </div>
   )
 }

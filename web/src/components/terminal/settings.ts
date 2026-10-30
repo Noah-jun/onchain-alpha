@@ -48,6 +48,7 @@ export const KEY_FIELDS = [
   { name: 'AI_API_KEY', header: 'x-ai-api-key', label: 'AI API Key', detail: '用于研究助手调用兼容 /chat/completions 的模型。' },
   { name: 'AI_BASE_URL', header: 'x-ai-base-url', label: 'AI Base URL', detail: '可选。默认 https://api.openai.com/v1。' },
   { name: 'AI_MODEL', header: 'x-ai-model', label: 'AI Model', detail: '可选。默认 gpt-4o-mini。' },
+  { name: 'DEEPL_API_KEY', header: 'x-deepl-api-key', label: 'DeepL API Key', detail: '没有 AI key 时用来翻译新闻和讨论。官方接口 https://api.deepl.com/v2/translate ；以 :fx 结尾的 Free key 走 api-free.deepl.com。文档：https://developers.deepl.com' },
   { name: 'NEWS_API_KEY', header: 'x-news-api-key', label: 'CryptoPanic Key', detail: '可选兜底。OpenNews 和每日热点都没有结果时才使用。' },
   { name: 'X_BEARER_TOKEN', header: 'x-x-bearer-token', label: 'X Bearer Token', detail: '可选兜底。没有 NewsLiquid token 时才搜索 X。' },
   { name: 'WHALE_ALERT_API_KEY', header: 'x-whale-alert-key', label: 'Whale Alert Key', detail: '可选。用于链上大额转账。公开成交和 OpenTrade 不依赖它。' },

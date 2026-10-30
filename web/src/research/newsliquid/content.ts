@@ -1,4 +1,5 @@
 import type { DiscussionPost, DiscussionTopic, NewsArticle, ResearchNote, WhaleTransfer } from '@/domain/types'
+import { needsTranslation } from '@/domain/translate'
 import { missingKey } from '@/research/env'
 import { liveProvenance } from '@/research/provenance'
 import { asArray, asRecord, newsliquidRequest, newsliquidToken, unwrapData } from '@/research/newsliquid/client'
@@ -62,11 +63,14 @@ function mapOpenNews(value: unknown): NewsArticle | null {
   const coins = coinSymbols(row.coins)
   const publishedAt = stringOf(row.ts) || new Date().toISOString()
   const source = stringOf(row.newsType) || 'OpenNews'
+  const summaryCopy = visibleCopy(stringOf(rating?.summary), stringOf(rating?.enSummary), 'OpenNews 没有返回摘要。')
+  const bodyCopy = visibleCopy(stringOf(rating?.summary), stringOf(rating?.enSummary), title)
   return article({
     id: `on-${stringOf(row.id) || title.slice(0, 24)}`,
     title,
-    summary: stringOf(rating?.summary) || stringOf(rating?.enSummary) || 'OpenNews 没有返回摘要。',
-    body: stringOf(rating?.summary) || stringOf(rating?.enSummary) || title,
+    summary: summaryCopy.text,
+    body: bodyCopy.text,
+    sourceZh: paired({ summary: summaryCopy.zh, body: bodyCopy.zh }),
     publishedAt,
     publisher: source,
     url: stringOf(row.link),
@@ -87,11 +91,14 @@ function mapDaily(value: unknown): NewsArticle | null {
   const title = stringOf(row.title)
   if (!title) return null
   const coins = Array.isArray(row.coins) ? row.coins.filter((item): item is string => typeof item === 'string') : []
+  const summaryCopy = visibleCopy(stringOf(row.summary_zh), stringOf(row.summary_en), '每日热点没有返回摘要。')
+  const bodyCopy = visibleCopy(stringOf(row.summary_zh), stringOf(row.summary_en), title)
   return article({
     id: `daily-${stringOf(row.id) || title.slice(0, 24)}`,
     title,
-    summary: stringOf(row.summary_zh) || stringOf(row.summary_en) || '每日热点没有返回摘要。',
-    body: stringOf(row.summary_zh) || stringOf(row.summary_en) || title,
+    summary: summaryCopy.text,
+    body: bodyCopy.text,
+    sourceZh: paired({ summary: summaryCopy.zh, body: bodyCopy.zh }),
     publishedAt: stringOf(row.published_at) || stringOf(row.created_at) || new Date().toISOString(),
     publisher: stringOf(row.source) || '6551 daily-news',
     url: stringOf(row.link),
@@ -122,6 +129,7 @@ function article(input: {
   score: number | null
   grade: string | null
   heat: Array<'社交热度高' | '基本面有支撑'>
+  sourceZh?: NewsArticle['sourceZh']
 }): NewsArticle {
   const sentiment = input.signal === 'long' ? '偏多' : input.signal === 'short' ? '偏空' : input.signal === 'neutral' ? '中性' : '未知'
   const confidence = input.score == null ? '低' : input.score >= 80 ? '高' : input.score >= 60 ? '中' : '低'
@@ -152,7 +160,29 @@ function article(input: {
     url: input.url,
     analysis,
     provenance: liveProvenance(input.source, input.publishedAt, 'NewsLiquid 返回的原文和评分', input.sourceUrl),
+    sourceZh: input.sourceZh,
   }
+}
+
+function visibleCopy(zh: string | null, en: string | null, fallback: string): { text: string; zh?: string } {
+  if (en && zh && needsTranslation(en) && !needsTranslation(zh)) return { text: en, zh }
+  return { text: zh || en || fallback }
+}
+
+function paired(fields: Record<string, string | undefined>): NewsArticle['sourceZh'] | undefined {
+  const entries = Object.entries(fields).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  return entries.length ? Object.fromEntries(entries) : undefined
+}
+
+function sourceChinese(row: Record<string, unknown>, original: string): string | undefined {
+  if (!needsTranslation(original)) return undefined
+  const candidates = [row.translation, row.translated_text, row.text_zh, row.zh_text, row.textZh]
+  for (const candidate of candidates) {
+    const record = asRecord(candidate)
+    const text = stringOf(candidate) || stringOf(record?.text) || stringOf(record?.zh)
+    if (text && !needsTranslation(text)) return text
+  }
+  return undefined
 }
 
 function mapTweetTopic(value: unknown): DiscussionTopic | null {
@@ -166,6 +196,7 @@ function mapTweetTopic(value: unknown): DiscussionTopic | null {
   const postedAt = stringOf(row.created_at) || stringOf(row.createdAt) || new Date().toISOString()
   const likes = numberOf(row.likeCount) || numberOf(row.favorite_count) || numberOf(row.likes) || 0
   const url = stringOf(row.url) || (id ? `https://x.com/i/web/status/${id}` : null)
+  const sourceZh = sourceChinese(row, text)
   const post: DiscussionPost = {
     id,
     author,
@@ -173,11 +204,13 @@ function mapTweetTopic(value: unknown): DiscussionTopic | null {
     postedAt,
     url,
     note: 'OpenTwitter 检索结果，不是本站编写的帖文',
+    sourceZh,
   }
   return {
     id: `tw-${id}`,
     date: postedAt.slice(0, 10),
     topic: text.slice(0, 80),
+    sourceZh: sourceZh && text.length <= 80 ? sourceZh : undefined,
     category: 'OpenTwitter',
     postCount: 1,
     authorCount: 1,

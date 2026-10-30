@@ -66,6 +66,8 @@ export interface NewsArticle {
   url: string | null
   analysis: ResearchNote
   provenance: Provenance
+  /** Chinese text already returned by NewsLiquid for the same field. */
+  sourceZh?: Partial<Record<'title' | 'summary' | 'body', string>>
 }
 
 export interface DiscussionPost {
@@ -75,6 +77,7 @@ export interface DiscussionPost {
   postedAt: string
   url: string | null
   note: string
+  sourceZh?: string
 }
 
 export interface DiscussionTopic {
@@ -92,6 +95,7 @@ export interface DiscussionTopic {
   posts: DiscussionPost[]
   analysis: ResearchNote
   provenance: Provenance
+  sourceZh?: string
 }
 
 export interface FundingRate {

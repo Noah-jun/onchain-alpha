@@ -6,6 +6,7 @@ import type { NewsArticle } from '@/domain/types'
 import { formatShanghai } from '@/domain/format'
 import { AnalysisCard, DataNotice, ErrorBlock, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 import { ChatPanel } from '@/components/terminal/ChatPanel'
+import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 
 export default function NewsDetailPage() {
   const params = useParams<{ id: string }>()
@@ -13,26 +14,39 @@ export default function NewsDetailPage() {
   return (
     <div>
       <Link href="/news" className="text-xs text-neutral-500">← 热点新闻</Link>
+      <div className="mt-4"><TranslateAllToggle /></div>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
-        <div className="mt-4 space-y-4">
-          <PageIntro kicker={data.analysis.eventType} title={data.title}>
-            {data.publisher} · {formatShanghai(data.publishedAt)}
-            {data.url ? <a className="ml-2 underline" href={data.url} target="_blank" rel="noreferrer">原文</a> : ' · 无外部链接'}
-          </PageIntro>
-          <DataNotice provenance={data.provenance} />
-          <article className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm leading-7">
-            <p>{data.summary}</p>
-            <p className="mt-3">{data.body}</p>
-          </article>
-          <AnalysisCard note={data.analysis} />
-          <ChatPanel
-            context={{ type: 'news', id: data.id }}
-            prompts={['这条新闻的相关资产是什么？', '社交热度和基本面分别怎么标？', '置信度的依据是什么？', '能保证据此获利吗？']}
-          />
-        </div>
+        <NewsDetail article={data} />
       ) : null}
+    </div>
+  )
+}
+
+function NewsDetail({ article }: { article: NewsArticle }) {
+  const copy = useTranslatedCopy([
+    { text: article.title, zh: article.sourceZh?.title },
+    { text: article.summary, zh: article.sourceZh?.summary },
+    { text: article.body, zh: article.sourceZh?.body },
+  ])
+  return (
+    <div className="space-y-4">
+      <PageIntro kicker={article.analysis.eventType} title={copy.view(article.title)}>
+        {article.publisher} · {formatShanghai(article.publishedAt)}
+        {article.url ? <a className="ml-2 underline" href={article.url} target="_blank" rel="noreferrer">原文链接</a> : ' · 无外部链接'}
+      </PageIntro>
+      <CopySwitch copy={copy} />
+      <DataNotice provenance={article.provenance} />
+      <article className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm leading-7">
+        <p>{copy.view(article.summary)}</p>
+        <p className="mt-3">{copy.view(article.body)}</p>
+      </article>
+      <AnalysisCard note={article.analysis} />
+      <ChatPanel
+        context={{ type: 'news', id: article.id }}
+        prompts={['这条新闻的相关资产是什么？', '社交热度和基本面分别怎么标？', '置信度的依据是什么？', '能保证据此获利吗？']}
+      />
     </div>
   )
 }

@@ -9,6 +9,7 @@ export interface RequestSecrets {
   X_BEARER_TOKEN?: string
   WHALE_ALERT_API_KEY?: string
   COINGECKO_API_KEY?: string
+  DEEPL_API_KEY?: string
 }
 
 const HEADER_TO_NAME: Record<string, keyof RequestSecrets> = {
@@ -20,6 +21,7 @@ const HEADER_TO_NAME: Record<string, keyof RequestSecrets> = {
   'x-x-bearer-token': 'X_BEARER_TOKEN',
   'x-whale-alert-key': 'WHALE_ALERT_API_KEY',
   'x-coingecko-api-key': 'COINGECKO_API_KEY',
+  'x-deepl-api-key': 'DEEPL_API_KEY',
 }
 
 const storage = new AsyncLocalStorage<RequestSecrets>()

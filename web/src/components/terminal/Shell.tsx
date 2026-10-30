@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { RESEARCH_DISCLAIMER } from '@/domain/format'
+import { TranslateProvider } from '@/components/terminal/translate'
 
 const NAV = [
   { href: '/', label: '市场看板' },
@@ -23,6 +24,7 @@ function active(pathname: string, href: string) {
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   return (
+    <TranslateProvider>
     <div className="terminal min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-[#e7e7e4] bg-[#f6f6f4] px-4 py-5 lg:flex">
         <Link href="/" className="px-2">
@@ -70,5 +72,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>
     </div>
+    </TranslateProvider>
   )
 }

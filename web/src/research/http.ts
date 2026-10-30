@@ -1,6 +1,6 @@
 const memory = new Map<string, { exp: number; value: unknown }>()
 
-export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+export async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs = 8000): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has('accept')) headers.set('accept', 'application/json')
   if (!headers.has('user-agent')) headers.set('user-agent', 'onchain-alpha-research/1.0')
@@ -8,7 +8,7 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
     ...init,
     headers,
     cache: 'no-store',
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`)

@@ -14,6 +14,7 @@ const CLIENT_SECRET_NAMES = new Set<keyof RequestSecrets>([
   'X_BEARER_TOKEN',
   'WHALE_ALERT_API_KEY',
   'COINGECKO_API_KEY',
+  'DEEPL_API_KEY',
 ])
 
 /** Header value for this request, otherwise the server environment variable. */

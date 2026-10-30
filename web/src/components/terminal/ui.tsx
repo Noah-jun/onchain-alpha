@@ -37,7 +37,7 @@ export function useResearch<T>(url: string | null, refreshSeconds = 0) {
   return { loading, error, data, reload: load }
 }
 
-export function PageIntro({ kicker, title, children }: { kicker: string; title: string; children?: React.ReactNode }) {
+export function PageIntro({ kicker, title, children }: { kicker: string; title: React.ReactNode; children?: React.ReactNode }) {
   return (
     <header className="mb-6">
       <p className="text-xs tracking-[0.16em] text-neutral-900">{kicker}</p>

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import type { DiscussionTopic } from '@/domain/types'
 import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
+import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 
 interface DiscussionResponse {
   items: DiscussionTopic[]
@@ -46,8 +47,9 @@ export default function DiscussionsPage() {
   return (
     <div>
       <PageIntro kicker="讨论" title="热门讨论">
-        优先使用 OpenTwitter。空内容、只发链接，以及规范化后相同的帖文只保留热度更高或更新的一条。没有 token 时显示未配置，不展示伪造帖文。
+        优先使用 OpenTwitter。空内容、只发链接，以及规范化后相同的帖文只保留热度更高或更新的一条。没有 token 时显示未配置，不展示伪造帖文。英文帖文可以翻译成中文，原文仍可切换回来。
       </PageIntro>
+      <TranslateAllToggle />
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
@@ -78,7 +80,7 @@ export default function DiscussionsPage() {
                 <tbody>
                   {sorted.map((topic) => (
                     <tr key={topic.id} className="border-t border-[#e7e7e4]">
-                      <td className="px-3 py-3"><Link className="underline" href={`/discussions/${topic.id}`}>{topic.topic}</Link></td>
+                      <td className="px-3 py-3"><TopicCell topic={topic} /></td>
                       <td className="num px-3 py-3">{topic.date}</td>
                       <td className="px-3 py-3">{topic.category}</td>
                       <td className="num px-3 py-3">{topic.postCount}</td>
@@ -94,6 +96,16 @@ export default function DiscussionsPage() {
           <p className="mt-3 text-xs text-neutral-500">当前排序：{sortKey === 'heat' ? '热度' : sortKey === 'date' ? '日期' : sortKey === 'postCount' ? '帖文数' : '账号数'} {direction === 'desc' ? '从高到低' : '从低到高'}。</p>
         </>
       ) : null}
+    </div>
+  )
+}
+
+function TopicCell({ topic }: { topic: DiscussionTopic }) {
+  const copy = useTranslatedCopy([{ text: topic.topic, zh: topic.sourceZh }])
+  return (
+    <div>
+      <Link className="underline" href={`/discussions/${topic.id}`}>{copy.view(topic.topic)}</Link>
+      <CopySwitch copy={copy} />
     </div>
   )
 }

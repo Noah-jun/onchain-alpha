@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import type { MarketBoard, Quote } from '@/domain/types'
+import type { DiscussionTopic, MarketBoard, NewsArticle, Quote } from '@/domain/types'
 import { formatShanghai, formatUsd } from '@/domain/format'
 import { readSettings, researchHeaders, writeSettings, type ClientSettings } from '@/components/terminal/settings'
 import { Assets, ChangeText, DataNotice, EmptyBlock, ErrorBlock, FundingText, HeatTags, LoadingBlock, PageIntro, Panel, Pills, useResearch } from '@/components/terminal/ui'
+import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 
 const SUGGESTIONS = ['BTC', 'ETH', 'SOL', 'SOLUSDT', 'QQQ', 'SPX', 'CL']
 
@@ -188,33 +189,16 @@ function Board({ data, settings, error, onChange }: { data: MarketBoard; setting
           ) : <EmptyBlock title="暂无资金费率" />}
         </Panel>
       </div>
+      <TranslateAllToggle />
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="最新新闻" extra={<Link className="text-xs underline" href="/news">全部</Link>}>
           {data.headlines.length ? <ul className="space-y-3 text-sm">
-            {data.headlines.map((article) => (
-              <li key={article.id}>
-                <Link href={`/news/${article.id}`}>
-                  <span className="block">{article.title}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                    <span>{formatShanghai(article.publishedAt)}</span>
-                    <Assets assets={article.analysis.relatedAssets} />
-                    <HeatTags tags={article.analysis.heatTags} />
-                  </span>
-                </Link>
-              </li>
-            ))}
+            {data.headlines.map((article) => <HomeNews key={article.id} article={article} />)}
           </ul> : <EmptyBlock title={data.notices.find((item) => item.id === 'news')?.message || '暂无新闻'} />}
         </Panel>
         <Panel title="最新讨论" extra={<Link className="text-xs underline" href="/discussions">全部</Link>}>
           {data.topics.length ? <ul className="space-y-3 text-sm">
-            {data.topics.map((topic) => (
-              <li key={topic.id}>
-                <Link href={`/discussions/${topic.id}`} className="flex items-center justify-between gap-3">
-                  <span>{topic.topic}</span>
-                  <span className="num text-xs text-neutral-500">热度 {topic.heat}</span>
-                </Link>
-              </li>
-            ))}
+            {data.topics.map((topic) => <HomeTopic key={topic.id} topic={topic} />)}
           </ul> : <EmptyBlock title={data.notices.find((item) => item.id === 'topics')?.message || '暂无讨论'} />}
         </Panel>
       </div>
@@ -247,6 +231,37 @@ function QuoteGroup({ title, quotes }: { title: string; quotes: Quote[] }) {
         </div>
       ) : <EmptyBlock title="暂无数据" />}
     </section>
+  )
+}
+
+function HomeNews({ article }: { article: NewsArticle }) {
+  const copy = useTranslatedCopy([
+    { text: article.title, zh: article.sourceZh?.title },
+    { text: article.summary, zh: article.sourceZh?.summary },
+  ])
+  return (
+    <li>
+      <Link href={`/news/${article.id}`} className="block">{copy.view(article.title)}</Link>
+      <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+        <span>{formatShanghai(article.publishedAt)}</span>
+        <Assets assets={article.analysis.relatedAssets} />
+        <HeatTags tags={article.analysis.heatTags} />
+      </span>
+      <CopySwitch copy={copy} />
+    </li>
+  )
+}
+
+function HomeTopic({ topic }: { topic: DiscussionTopic }) {
+  const copy = useTranslatedCopy([{ text: topic.topic, zh: topic.sourceZh }])
+  return (
+    <li>
+      <Link href={`/discussions/${topic.id}`} className="flex items-center justify-between gap-3">
+        <span>{copy.view(topic.topic)}</span>
+        <span className="num text-xs text-neutral-500">热度 {topic.heat}</span>
+      </Link>
+      <CopySwitch copy={copy} />
+    </li>
   )
 }
 

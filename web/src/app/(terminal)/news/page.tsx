@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import type { NewsArticle } from '@/domain/types'
 import { formatShanghai } from '@/domain/format'
 import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
+import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 
 interface NewsResponse {
   items: NewsArticle[]
@@ -35,8 +36,9 @@ export default function NewsPage() {
   return (
     <div>
       <PageIntro kicker="新闻" title="热点新闻">
-        优先使用 OpenNews 和 6551 每日热点。相同链接，或去掉标点和来源前缀后相同的标题，只保留一条。没有 NewsLiquid token 时 OpenNews 显示未配置，每日热点仍可能有数据。
+        优先使用 OpenNews 和 6551 每日热点。相同链接，或去掉标点和来源前缀后相同的标题，只保留一条。没有 NewsLiquid token 时 OpenNews 显示未配置，每日热点仍可能有数据。英文条目可以翻译成中文，原文仍可切换回来。
       </PageIntro>
+      <TranslateAllToggle />
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
@@ -61,28 +63,39 @@ export default function NewsPage() {
           </div>
           {filtered.length ? (
             <ul className="space-y-3">
-              {filtered.map((article) => (
-                <li key={article.id}>
-                  <Link href={`/news/${article.id}`} className="block rounded-lg border border-[#e7e7e4] bg-white p-4 hover:border-neutral-900">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
-                      <span>{article.publisher} · {formatShanghai(article.publishedAt)}</span>
-                      <span>{article.provenance.mode === 'demo' ? '演示' : article.provenance.mode === 'live' ? '实时' : '未配置'}</span>
-                    </div>
-                    <h2 className="mt-2 text-lg">{article.title}</h2>
-                    <p className="mt-2 text-sm leading-6 text-neutral-700">{article.summary}</p>
-                    <p className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-500">
-                      <span>{article.analysis.eventType}</span>
-                      <Assets assets={article.analysis.relatedAssets} />
-                      <span>{article.analysis.sentiment}</span>
-                      <HeatTags tags={article.analysis.heatTags} />
-                    </p>
-                  </Link>
-                </li>
-              ))}
+              {filtered.map((article) => <NewsCard key={article.id} article={article} />)}
             </ul>
           ) : <EmptyBlock title={data.provenance.mode === 'unconfigured' ? '未配置' : '暂无符合条件的新闻'} detail={data.provenance.note} />}
         </>
       ) : null}
     </div>
+  )
+}
+
+function NewsCard({ article }: { article: NewsArticle }) {
+  const copy = useTranslatedCopy([
+    { text: article.title, zh: article.sourceZh?.title },
+    { text: article.summary, zh: article.sourceZh?.summary },
+  ])
+  return (
+    <li>
+      <article className="rounded-lg border border-[#e7e7e4] bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+          <span>{article.publisher} · {formatShanghai(article.publishedAt)}</span>
+          <span>{article.provenance.mode === 'demo' ? '演示' : article.provenance.mode === 'live' ? '实时' : '未配置'}</span>
+        </div>
+        <h2 className="mt-2 text-lg">
+          <Link href={`/news/${article.id}`} className="hover:underline">{copy.view(article.title)}</Link>
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-neutral-700">{copy.view(article.summary)}</p>
+        <p className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-500">
+          <span>{article.analysis.eventType}</span>
+          <Assets assets={article.analysis.relatedAssets} />
+          <span>{article.analysis.sentiment}</span>
+          <HeatTags tags={article.analysis.heatTags} />
+        </p>
+        <CopySwitch copy={copy} />
+      </article>
+    </li>
   )
 }

@@ -46,7 +46,7 @@ export default function DiscussionsPage() {
   return (
     <div>
       <PageIntro kicker="讨论" title="热门讨论">
-        讨论来自 X 的 recent search。没有 Bearer Token 时这里保持未配置，不展示伪造帖文。
+        优先使用 OpenTwitter。空内容、只发链接，以及规范化后相同的帖文只保留热度更高或更新的一条。没有 token 时显示未配置，不展示伪造帖文。
       </PageIntro>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}

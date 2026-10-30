@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { SourceStatus } from '@/domain/types'
 import { modeLabel } from '@/domain/format'
-import { DEFAULT_SETTINGS, readSettings, writeSettings, type ClientSettings } from '@/components/terminal/settings'
+import { DEFAULT_SETTINGS, KEY_FIELDS, readKeys, readSettings, writeKeys, writeSettings, type ClientSettings, type KeyName } from '@/components/terminal/settings'
 import { DataNotice, ErrorBlock, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 
 interface SourceResponse {
@@ -34,8 +34,9 @@ export default function SettingsPage() {
   return (
     <div>
       <PageIntro kicker="设置" title="数据源与自选">
-        行情、资金费率和 5 分钟波动默认使用免密钥公开接口。需要密钥的模块没配时会写明要在 Vercel 设置哪个变量，不会显示伪造数据。演示快照只有 RESEARCH_ALLOW_DEMO=1 才会出现。
+        行情、资金费率和 5 分钟波动默认使用免密钥公开接口。密钥保存在这台浏览器，请求时通过请求头交给服务端，页面和接口响应都不会回显密钥。演示快照只有 RESEARCH_ALLOW_DEMO=1 才会出现。
       </PageIntro>
+      <KeyVault onChanged={() => void sourceState.reload()} />
       <section className="rounded-lg border border-[#e7e7e4] bg-white p-4">
         <h2 className="text-sm font-semibold">看板上的永续代码</h2>
         <p className="mt-2 text-xs leading-5 text-neutral-500">默认 CLUSDT。改成目录里没有的代码时，卡片显示暂无数据，不会编一个价格。</p>
@@ -107,6 +108,60 @@ export default function SettingsPage() {
         <p className="mt-2">复制 <span className="num">web/.env.example</span> 即可看到全部变量。旧版信号页仍在 /legacy。</p>
       </section>
     </div>
+  )
+}
+
+function KeyVault({ onChanged }: { onChanged: () => void }) {
+  const [saved, setSaved] = useState<Partial<Record<KeyName, boolean>>>({})
+  const [drafts, setDrafts] = useState<Partial<Record<KeyName, string>>>({})
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    const keys = readKeys()
+    setSaved(Object.fromEntries(KEY_FIELDS.map((field) => [field.name, Boolean(keys[field.name])])))
+  }, [])
+
+  function persist(name: KeyName, value: string) {
+    const next = { ...readKeys() }
+    if (value.trim()) next[name] = value.trim()
+    else delete next[name]
+    writeKeys(next)
+    setDrafts((current) => ({ ...current, [name]: '' }))
+    setSaved((current) => ({ ...current, [name]: Boolean(value.trim()) }))
+    setNote(value.trim() ? '已保存在这台浏览器。输入框已清空，不会显示密钥原文。' : '已从这台浏览器清除。')
+    onChanged()
+  }
+
+  return (
+    <section className="mb-6 rounded-lg border border-[#e7e7e4] bg-white p-4">
+      <h2 className="text-sm font-semibold">本机密钥</h2>
+      <p className="mt-2 text-xs leading-6 text-neutral-500">只写入浏览器 localStorage。服务端优先使用请求头里的值，没有再用 Vercel 环境变量。不要把密钥发到聊天或截图里。</p>
+      <div className="mt-4 space-y-4">
+        {KEY_FIELDS.map((field) => (
+          <form key={field.name} className="grid gap-2 border-t border-[#e7e7e4] pt-4 first:border-t-0 first:pt-0" onSubmit={(event) => { event.preventDefault(); persist(field.name, drafts[field.name] || '') }}>
+            <div>
+              <label htmlFor={`key-${field.name}`} className="text-sm font-medium">{field.label}</label>
+              <p className="text-xs leading-5 text-neutral-500">{field.detail}</p>
+              <p className="mt-1 font-mono text-[11px] text-neutral-400">{field.name} · {saved[field.name] ? '此浏览器已保存' : '此浏览器未保存'}</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id={`key-${field.name}`}
+                type="password"
+                autoComplete="off"
+                value={drafts[field.name] || ''}
+                placeholder={saved[field.name] ? '已保存，输入新值可替换' : '输入后保存'}
+                onChange={(event) => setDrafts((current) => ({ ...current, [field.name]: event.target.value }))}
+                className="flex-1 px-3 py-2 text-sm"
+              />
+              <button type="submit" className="rounded-full bg-neutral-950 px-4 py-2 text-sm text-white">保存</button>
+              <button type="button" className="rounded-full bg-[#f3f3f1] px-4 py-2 text-sm" onClick={() => persist(field.name, '')}>清除</button>
+            </div>
+          </form>
+        ))}
+      </div>
+      {note ? <p className="mt-3 text-xs text-emerald-700">{note}</p> : null}
+    </section>
   )
 }
 

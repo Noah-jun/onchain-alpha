@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { HistoryPoint, Provenance, ResearchNote } from '@/domain/types'
 import { formatShanghai, freshnessLabel, modeLabel } from '@/domain/format'
+import { researchHeaders } from '@/components/terminal/settings'
 
 export function useResearch<T>(url: string | null, refreshSeconds = 0) {
   const [loading, setLoading] = useState(Boolean(url))
@@ -12,7 +13,7 @@ export function useResearch<T>(url: string | null, refreshSeconds = 0) {
   const load = useCallback(async () => {
     if (!url) return
     try {
-      const response = await fetch(url, { cache: 'no-store' })
+      const response = await fetch(url, { cache: 'no-store', headers: researchHeaders() })
       const json = await response.json()
       if (!response.ok) throw new Error(json.error || '加载失败')
       setData(json)

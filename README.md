@@ -48,7 +48,9 @@ npm start
 | AI 对话 | 未配置 | `AI_API_KEY`，可选 `AI_BASE_URL`、`AI_MODEL` | 任何兼容 `/chat/completions` 的密钥。不填时页面不会编造回答 |
 | 演示快照 | 关闭 | `RESEARCH_ALLOW_DEMO=1` | 只有显式设为 `1` 才启用，页面会标明演示 |
 
-复制 `web/.env.example` 为 `web/.env`，或在 Vercel 项目的 Environment Variables 里填写同名变量。不要把密钥交给浏览器。
+密钥可以在网站「设置」页填写。它们只保存在当前浏览器的 localStorage，请求研究接口时放在 `x-newsliquid-token`、`x-ai-api-key`、`x-ai-base-url`、`x-ai-model`、`x-news-api-key`、`x-x-bearer-token`、`x-whale-alert-key`、`x-coingecko-api-key` 请求头里。服务端优先用请求头，没有再用同名环境变量，并且不会把密钥写进响应。也可以把同名变量配在 Vercel。复制 `web/.env.example` 可查看变量名。
+
+新闻去重：标题和正文去掉链接、标点并小写后相同，或规范化 URL 相同，只保留分数更高、时间更新的一条。讨论去重：空内容、只剩链接、以及规范化后相同的帖文只留热度更高或更新的一条。
 
 ## 已知限制
 

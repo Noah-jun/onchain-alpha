@@ -35,7 +35,7 @@ export default function NewsPage() {
   return (
     <div>
       <PageIntro kicker="新闻" title="热点新闻">
-        新闻来自 CryptoPanic。没有密钥时保持未配置。配上之后会保留事件类型、资产、情绪、影响路径和置信依据；资产对不上时写未识别。
+        优先使用 OpenNews 和 6551 每日热点。相同链接，或去掉标点和来源前缀后相同的标题，只保留一条。没有 NewsLiquid token 时 OpenNews 显示未配置，每日热点仍可能有数据。
       </PageIntro>
       {loading && !data ? <LoadingBlock /> : null}
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}

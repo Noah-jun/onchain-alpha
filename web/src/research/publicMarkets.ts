@@ -1,6 +1,6 @@
 import type { FundingRate, HistoryPoint, MoveScan, Provenance, Quote, WhaleTransfer } from '@/domain/types'
 import { deriveVolatilityStatus, isFiveMinuteShock } from '@/domain/volatility'
-import { demoAllowed, envSet } from '@/research/env'
+import { demoAllowed, envSet, secretValue } from '@/research/env'
 import { cached, fetchJson } from '@/research/http'
 import { failedLiveProvenance, liveProvenance } from '@/research/provenance'
 
@@ -92,7 +92,8 @@ function blankQuote(symbol: string, errors: string[]): Quote {
 
 async function geckoQuote(symbol: string, id: string): Promise<Quote> {
   const headers: Record<string, string> = {}
-  if (envSet('COINGECKO_API_KEY')) headers['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY!.trim()
+  const coingeckoKey = secretValue('COINGECKO_API_KEY')
+  if (coingeckoKey) headers['x-cg-demo-api-key'] = coingeckoKey
   const body = await cached(`cg:${id}`, TTL, () => fetchJson<Record<string, { usd?: number; usd_24h_change?: number }>>(
     `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`,
     { headers }

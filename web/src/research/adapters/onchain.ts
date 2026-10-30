@@ -1,6 +1,6 @@
 import type { FlowDirection, FlowObservation, Provenance, ResearchNote, WhaleTransfer } from '@/domain/types'
 import { DEMO_FLOWS } from '@/research/demo/catalog'
-import { demoAllowed, envSet, missingKey } from '@/research/env'
+import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 import { loadOpenTradeSignals, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
@@ -46,7 +46,7 @@ export async function loadFlows(extra: string[] = []): Promise<{
 
 async function loadWhaleAlert(): Promise<{ items: WhaleTransfer[]; provenance: Provenance; error: string | null }> {
   try {
-    const key = process.env.WHALE_ALERT_API_KEY!.trim()
+    const key = secretValue('WHALE_ALERT_API_KEY') || ''
     const body = await fetchJson<{ result?: string; transactions?: WhaleAlertTx[]; message?: string }>(
       `https://api.whale-alert.io/v1/transactions?api_key=${encodeURIComponent(key)}&min_value=500000&limit=20`
     )

@@ -1,6 +1,7 @@
 import type { NewsArticle, Provenance, ResearchNote } from '@/domain/types'
 import { DEMO_NEWS } from '@/research/demo/catalog'
-import { demoAllowed, envSet, missingKey } from '@/research/env'
+import { contentFingerprint, canonicalUrl, dedupeByFingerprint } from '@/research/dedupe'
+import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { loadDailyHotArticles, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
@@ -45,8 +46,10 @@ export async function loadNews(): Promise<{ items: NewsArticle[]; provenance: Pr
       error: reason,
     }
   }
-  const seen = new Set<string>()
-  const unique = items.filter((item) => seen.has(item.id) ? false : (seen.add(item.id), true))
+  const unique = dedupeByFingerprint(items, {
+    fingerprint: (item) => [canonicalUrl(item.url) || '', contentFingerprint(item.title, `${item.summary} ${item.body}`)],
+    rank: (item) => (item.analysis.confidence === '高' ? 3 : item.analysis.confidence === '中' ? 2 : 1) * 1_000_000_000_000 + new Date(item.publishedAt).getTime(),
+  })
   return {
     items: unique,
     provenance: liveProvenance(
@@ -61,7 +64,7 @@ export async function loadNews(): Promise<{ items: NewsArticle[]; provenance: Pr
 
 async function loadCryptoPanic(): Promise<{ items: NewsArticle[]; provenance: Provenance; error: string | null }> {
   try {
-    const token = process.env.NEWS_API_KEY!.trim()
+    const token = secretValue('NEWS_API_KEY') || ''
     const body = await fetchJson<{ results?: CryptoPanicPost[] }>(
       `https://cryptopanic.com/api/v1/posts/?auth_token=${encodeURIComponent(token)}&public=true&kind=news`
     )

@@ -1,6 +1,6 @@
 import type { AiAnswer, Citation, DataMode, Provenance } from '@/domain/types'
 import { RESEARCH_DISCLAIMER } from '@/domain/format'
-import { demoAllowed, envSet, missingKey } from '@/research/env'
+import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
@@ -115,13 +115,13 @@ function analystProvenance(dataMode: DataMode, external: boolean): Provenance {
 }
 
 async function polish(message: string, bundle: GroundingBundle, ruled: Omit<AiAnswer, 'provenance'>): Promise<Omit<AiAnswer, 'provenance'> | null> {
-  const base = (process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
-  const model = process.env.AI_MODEL || 'gpt-4o-mini'
+  const base = (secretValue('AI_BASE_URL') || 'https://api.openai.com/v1').replace(/\/$/, '')
+  const model = secretValue('AI_MODEL') || 'gpt-4o-mini'
   const body = await fetchJson<{ choices?: { message?: { content?: string } }[] }>(`${base}/chat/completions`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${process.env.AI_API_KEY!.trim()}`,
+      authorization: `Bearer ${secretValue('AI_API_KEY')}`,
     },
     body: JSON.stringify({
       model,

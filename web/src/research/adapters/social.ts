@@ -1,6 +1,7 @@
 import type { DiscussionPost, DiscussionTopic, Provenance } from '@/domain/types'
 import { DEMO_TOPICS } from '@/research/demo/catalog'
-import { demoAllowed, envSet, missingKey } from '@/research/env'
+import { canonicalUrl, contentFingerprint, dedupeByFingerprint, isLowValuePost } from '@/research/dedupe'
+import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { loadOpenTwitterTopics, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
@@ -35,7 +36,7 @@ class XRecentSearchAdapter implements SocialAdapter {
   id = 'x-recent-search'
   async listTopics() {
     try {
-      const token = process.env.X_BEARER_TOKEN!.trim()
+      const token = secretValue('X_BEARER_TOKEN') || ''
       const query = encodeURIComponent('("bitcoin" OR "ethereum" OR "crypto") -is:retweet lang:en')
       const body = await fetchJson<{ data?: XTweet[]; errors?: { detail?: string }[] }>(
         `https://api.twitter.com/2/tweets/search/recent?query=${query}&max_results=10&tweet.fields=created_at,author_id,public_metrics`,
@@ -106,19 +107,40 @@ interface XTweet {
   author_id?: string
 }
 
+function dedupeTopics(items: DiscussionTopic[]): DiscussionTopic[] {
+  const cleaned = items.flatMap((topic) => {
+    if (topic.id === 'kol-watch') return [topic]
+    const posts = topic.posts.filter((post) => !isLowValuePost(post.text))
+    if (!posts.length) return []
+    return [{ ...topic, posts, summary: posts[0].text, topic: posts[0].text.slice(0, 80) }]
+  })
+  return dedupeByFingerprint(cleaned, {
+    fingerprint: (topic) => [
+      ...topic.posts.flatMap((post) => [canonicalUrl(post.url) || '', post.id ? `post:${post.id}` : '', contentFingerprint(post.text)]),
+      contentFingerprint(topic.topic, topic.summary),
+    ],
+    rank: (topic) => topic.heat * 1_000_000_000_000 + new Date(topic.posts[0]?.postedAt || topic.date).getTime(),
+  })
+}
+
+async function presentTopics(result: { items: DiscussionTopic[]; provenance: Provenance; error: string | null }) {
+  return { ...result, items: dedupeTopics(result.items) }
+}
+
 export async function loadTopics() {
-  if (demoAllowed()) return new DemoSocialAdapter().listTopics()
+  if (demoAllowed()) return presentTopics(await new DemoSocialAdapter().listTopics())
   if (newsliquidConfigured()) {
     try {
       const items = await loadOpenTwitterTopics()
-      if (items.length) {
+      const kept = dedupeTopics(items)
+      if (kept.length) {
         return {
-          items,
-          provenance: items[0].provenance,
+          items: kept,
+          provenance: kept[0].provenance,
           error: null,
         }
       }
-      if (envSet('X_BEARER_TOKEN')) return new XRecentSearchAdapter().listTopics()
+      if (envSet('X_BEARER_TOKEN')) return presentTopics(await new XRecentSearchAdapter().listTopics())
       return {
         items: [],
         provenance: failedLiveProvenance('OpenTwitter', 'OpenTwitter 没有返回帖文，也没有配置 X_BEARER_TOKEN。'),
@@ -128,7 +150,7 @@ export async function loadTopics() {
       const message = error instanceof Error ? error.message : '请求失败'
       if (envSet('X_BEARER_TOKEN')) {
         const fallback = await new XRecentSearchAdapter().listTopics()
-        return { ...fallback, error: `OpenTwitter 失败：${message}` }
+        return presentTopics({ ...fallback, error: `OpenTwitter 失败：${message}` })
       }
       return {
         items: [],
@@ -137,7 +159,7 @@ export async function loadTopics() {
       }
     }
   }
-  if (envSet('X_BEARER_TOKEN')) return new XRecentSearchAdapter().listTopics()
+  if (envSet('X_BEARER_TOKEN')) return presentTopics(await new XRecentSearchAdapter().listTopics())
   return new UnconfiguredSocialAdapter(`${newsliquidMissing()}。X_BEARER_TOKEN 是可选兜底。`).listTopics()
 }
 

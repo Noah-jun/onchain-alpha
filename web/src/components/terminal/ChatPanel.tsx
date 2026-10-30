@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { AiAnswer } from '@/domain/types'
 import { formatShanghai, modeLabel } from '@/domain/format'
 import { Meta } from '@/components/terminal/ui'
+import { researchHeaders } from '@/components/terminal/settings'
 
 interface ChatContext {
   type: string
@@ -33,7 +34,7 @@ export function ChatPanel({ context, prompts }: { context: ChatContext; prompts:
     try {
       const response = await fetch('/api/research/chat', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...researchHeaders() },
         body: JSON.stringify({ message, context }),
       })
       const answer = await response.json()

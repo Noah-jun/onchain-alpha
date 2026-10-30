@@ -1,10 +1,9 @@
-import { missingKey } from '@/research/env'
+import { missingKey, secretValue } from '@/research/env'
 
 export const NEWSLIQUID_BASE = (process.env.NEWSLIQUID_API_BASE || 'https://ai.6551.io').replace(/\/$/, '')
 
 export function newsliquidToken(): string | null {
-  const token = process.env.NEWSLIQUID_API_TOKEN?.trim()
-  return token || null
+  return secretValue('NEWSLIQUID_API_TOKEN')
 }
 
 export function sanitizeNewsliquidError(message: string): string {

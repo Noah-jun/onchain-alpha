@@ -4,7 +4,7 @@ import type { Provenance } from '@/domain/types'
 import { contentFingerprint, isLowValuePost } from '@/research/dedupe'
 import { envSet, missingKey, secretValue } from '@/research/env'
 import { cached, fetchJson } from '@/research/http'
-import { asArray, asRecord, newsliquidRequest, newsliquidToken } from '@/research/newsliquid/client'
+import { asArray, asRecord, NewsliquidHttpError, newsliquidRequest, newsliquidToken } from '@/research/newsliquid/client'
 import { failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
 export type TopicKind = '事件' | 'Meme' | '项目' | '新东西'
@@ -74,7 +74,8 @@ export interface TopicBoard {
 
 const GENERIC = new Set(['BTC', 'ETH', 'SOL', 'CRYPTO', 'BITCOIN', 'ETHEREUM', 'WEB3', 'NFT', 'DEFI', 'USDT', 'USDC', 'BNB'])
 const MEME = new Set(['PEPE', 'DOGE', 'BONK', 'WIF', 'SHIB', 'FLOKI', 'MEME', 'BRETT', 'POPCAT'])
-const PUMP = /(to the moon|1000?x|guaranteed|sure pump|必涨|稳赚|梭哈|翻倍|buy now|don'?t miss)/i
+const SHILL = /(to the moon|guaranteed|sure pump|必涨|稳赚|梭哈|翻倍|buy now|don'?t miss|profit up|my call|watch your entry|\b\d+\s*x\b|1000x|fomo|gem call|ape in|easy money|喊单|收益晒)/i
+const SPAM_TAG = /(1000?x|fomo|memecoin|gem|pump|shill)/i
 const NEW_PHRASE = /(just launched|fair launch|new (token|coin|dex|l2)|今日上线|刚上线|全新|mainnet is live|主网上线)/i
 const WINDOW_MS = 24 * 60 * 60 * 1000
 const HEAT_NOTE = '基于样本，数据有限'
@@ -110,18 +111,20 @@ async function computeBoard(): Promise<TopicBoard> {
     return { items: [], provenance: unconfiguredProvenance('OpenTwitter / X API', note), error: note, emptyReason: null, windowHours: 24 }
   }
   const loaded = await loadSample()
+  const span = sampleSpan(loaded.posts)
   if (!loaded.posts.length) {
-    const note = loaded.errors.join('；') || 'X 数据源没有返回近 24 小时的帖文。'
-    return { items: [], provenance: failedLiveProvenance(loaded.sources.join(' / ') || 'OpenTwitter / X API', note, 'https://ai.6551.io/open/twitter_search'), error: note, emptyReason: null, windowHours: 24 }
+    const note = [loaded.errors.join('；') || 'X 数据源没有返回近 24 小时的帖文。', span].filter(Boolean).join(' ')
+    return { items: [], provenance: failedLiveProvenance(loaded.sources.join(' / ') || 'OpenTwitter / X API', note, 'https://ai.6551.io/open/twitter_search'), error: loaded.errors.join('；') || note, emptyReason: null, windowHours: 24 }
   }
   const clusters = rank(cluster(loaded.posts))
   const verified = await verifyAll(clusters.slice(0, 8))
   const interpreted = await interpret(verified)
   const items = interpreted.sort((a, b) => b.heat - a.heat)
   const note = [
-    `近 24 小时样本，来源 ${loaded.sources.join(' / ')}。热度只统计这次拉到的帖文。`,
+    span,
+    `来源 ${loaded.sources.join(' / ')}。${loaded.queryNote}`,
     loaded.errors.length ? loaded.errors.join('；') : '',
-    items.length ? '' : '样本里没有同时满足明确对象、多名账号和可保留文本的话题。',
+    items.length ? '' : '筛选后没有合格话题。',
   ].filter(Boolean).join(' ')
   return {
     items,
@@ -132,25 +135,39 @@ async function computeBoard(): Promise<TopicBoard> {
   }
 }
 
-async function loadSample(): Promise<{ posts: RawPost[]; sources: string[]; errors: string[] }> {
+const SEARCH_KEYWORDS = ['bitcoin', 'ethereum', 'solana', 'airdrop', 'hack', 'exploit', 'listing', 'ETF', 'memecoin', 'uniswap', 'hyperliquid', 'jupiter']
+const OFFICIAL_ACCOUNTS = ['binance', 'coinbase', 'ethereum', 'solana', 'VitalikButerin']
+
+async function loadSample(): Promise<{ posts: RawPost[]; sources: string[]; errors: string[]; queryNote: string }> {
   const since = ymd(Date.now() - WINDOW_MS)
+  const until = ymd(Date.now())
   const posts: RawPost[] = []
   const sources: string[] = []
   const errors: string[] = []
+  let searches = 0
+  let accounts = 0
   if (newsliquidToken()) {
     sources.push('OpenTwitter')
-    const queries = [
-      { query: `(bitcoin OR ethereum OR solana OR crypto OR meme) -is:retweet since:${since}`, product: 'Latest', maxResults: 50 },
-      { keywords: 'bitcoin OR ethereum OR solana OR crypto', sinceDate: since, excludeRetweets: true, product: 'Top', maxResults: 40 },
-    ]
-    const settled = await Promise.allSettled(queries.map((body) => newsliquidRequest('/open/twitter_search', { method: 'POST', body })))
-    settled.forEach((item, index) => {
-      if (item.status === 'rejected') {
-        errors.push(`OpenTwitter 查询 ${index + 1} 失败：${item.reason instanceof Error ? item.reason.message : '请求失败'}`)
-        return
-      }
-      posts.push(...asArray(unwrapPosts(item.value.body)).map(toPost).filter((post): post is RawPost => post !== null))
-    })
+    const halted = await runLimited(SEARCH_KEYWORDS, 2, async (keyword) => {
+      const { body } = await newsliquidRequest('/open/twitter_search', {
+        method: 'POST',
+        body: {
+          keywords: keyword,
+          sinceDate: since,
+          untilDate: until,
+          excludeRetweets: true,
+          excludeReplies: true,
+          product: 'Top',
+          minLikes: 3,
+          maxResults: 100,
+        },
+      })
+      searches += 1
+      posts.push(...postsFromBody(body))
+    }, errors)
+    if (!halted) {
+      accounts = await loadAccountPosts(posts, errors)
+    }
   }
   if (envSet('X_BEARER_TOKEN')) {
     sources.push('X API')
@@ -160,9 +177,83 @@ async function loadSample(): Promise<{ posts: RawPost[]; sources: string[]; erro
       errors.push(`X API 失败：${error instanceof Error ? error.message : '请求失败'}`)
     }
   }
+  const pooled = await mergePool(dedupePosts(posts))
   const cutoff = Date.now() - WINDOW_MS
-  const fresh = posts.filter((post) => post.time == null || post.time >= cutoff)
-  return { posts: dedupePosts(fresh), sources, errors }
+  const fresh = pooled.filter((post) => post.time != null && post.time >= cutoff)
+  const queryNote = `OpenTwitter 用 keywords + sinceDate/untilDate + product=Top + minLikes，不用 query（query 会忽略时间范围）。本次新查询 ${searches} 组，关注或官方账号 ${accounts} 个。接口没有搜索翻页，多组查询和 24 小时帖文池累加。`
+  return { posts: fresh, sources, errors, queryNote }
+}
+
+async function runLimited<T>(items: T[], width: number, run: (item: T) => Promise<void>, errors: string[]): Promise<boolean> {
+  let index = 0
+  let halted = false
+  async function worker() {
+    while (!halted && index < items.length) {
+      const current = items[index]
+      index += 1
+      try {
+        await run(current)
+      } catch (error) {
+        if (error instanceof NewsliquidHttpError && (error.status === 429 || error.status === 402)) {
+          halted = true
+          errors.push(`OpenTwitter 限速或额度不足（HTTP ${error.status}），已保留已拉到的帖文。`)
+        } else {
+          errors.push(error instanceof Error ? error.message : '请求失败')
+        }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(width, items.length) }, () => worker()))
+  return halted
+}
+
+async function loadAccountPosts(posts: RawPost[], errors: string[]): Promise<number> {
+  const names = new Set<string>(OFFICIAL_ACCOUNTS)
+  try {
+    const { body } = await newsliquidRequest('/open/twitter_watch', { method: 'POST', body: {} })
+    for (const name of watchNames(body)) names.add(name)
+  } catch (error) {
+    if (!(error instanceof NewsliquidHttpError && (error.status === 429 || error.status === 402))) {
+      errors.push(`关注列表读取失败：${error instanceof Error ? error.message : '请求失败'}`)
+    }
+  }
+  const list = [...names].slice(0, 8)
+  await runLimited(list, 2, async (username) => {
+    const { body } = await newsliquidRequest('/open/twitter_user_tweets', {
+      method: 'POST',
+      body: { username, maxResults: 40, product: 'Latest', includeReplies: false, includeRetweets: false },
+    })
+    posts.push(...postsFromBody(body))
+  }, errors)
+  return list.length
+}
+
+function watchNames(body: unknown): string[] {
+  return asArray(body).map((item) => {
+    if (typeof item === 'string') return item.replace(/^@/, '')
+    const row = asRecord(item)
+    return str(row?.username) || str(row?.screen_name) || str(row?.twAccount) || str(row?.userName) || ''
+  }).map((name) => name.replace(/^@/, '')).filter(Boolean)
+}
+
+function postsFromBody(body: unknown): RawPost[] {
+  return asArray(unwrapPosts(body)).map(toPost).filter((post): post is RawPost => post !== null)
+}
+
+async function mergePool(incoming: RawPost[]): Promise<RawPost[]> {
+  const previous = await readPool()
+  const merged = dedupePosts([...previous, ...incoming])
+  const cutoff = Date.now() - WINDOW_MS
+  const kept = merged.filter((post) => (post.time != null ? post.time >= cutoff : false)).slice(-2000)
+  await writePool(kept)
+  return kept
+}
+
+function sampleSpan(posts: RawPost[]): string {
+  const times = posts.map((post) => post.time).filter((time): time is number => time != null).sort((a, b) => a - b)
+  if (!times.length) return `样本 0 条，没有落在最近 24 小时内的时间戳。`
+  const hours = ((times[times.length - 1] - times[0]) / 3_600_000).toFixed(1)
+  return `样本 ${posts.length} 条，最早 ${new Date(times[0]).toISOString()}，最晚 ${new Date(times[times.length - 1]).toISOString()}，跨度 ${hours} 小时。`
 }
 
 function unwrapPosts(body: unknown): unknown {
@@ -236,6 +327,7 @@ function dedupePosts(posts: RawPost[]): RawPost[] {
 function cluster(posts: RawPost[]): TopicCard[] {
   const groups = new Map<string, RawPost[]>()
   for (const post of posts) {
+    if (isPromo(post)) continue
     const key = primaryKey(post)
     if (!key) continue
     const list = groups.get(key) ?? []
@@ -278,8 +370,12 @@ function qualify(key: string, posts: RawPost[]): TopicCard | null {
   const unique = [...uniqueTexts.values()]
   const authors = new Set(posts.map((post) => post.author.toLowerCase()))
   if (unique.length < 2 || authors.size < 2) return null
-  const pumpCount = posts.filter((post) => PUMP.test(post.text)).length
-  if (pumpCount / posts.length >= 0.8 && !posts.some((post) => post.addresses.length)) return null
+  const pumpCount = posts.filter((post) => SHILL.test(post.text) || isPromo(post)).length
+  if (pumpCount / posts.length >= 0.5) return null
+  if (ruleKind(key, posts) === 'Meme') {
+    const engagedAuthors = [...authors].filter((author) => posts.some((post) => post.author.toLowerCase() === author && engagementOf(post) > 0))
+    if (engagedAuthors.length < 2) return null
+  }
   const counts = new Map<string, number>()
   for (const post of posts) counts.set(post.author.toLowerCase(), (counts.get(post.author.toLowerCase()) ?? 0) + 1)
   const topShare = Math.max(...counts.values()) / posts.length
@@ -322,6 +418,56 @@ function qualify(key: string, posts: RawPost[]): TopicCard | null {
     verification: [],
     interpretation: emptyInterpretation(unique, anomaly),
   }
+}
+
+export function isPromoText(text: string): boolean {
+  const post = toPost({ id: 'promo', text, userScreenName: 'promo', favoriteCount: 0, retweetCount: 0, replyCount: 0, userFollowers: 0 })
+  return post ? isPromo(post) : true
+}
+
+function isPromo(post: RawPost): boolean {
+  if (/pump\.fun/i.test(post.text) || SHILL.test(post.text)) return true
+  const stripped = post.text
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/#\w+/g, ' ')
+    .replace(/\$[A-Za-z][A-Za-z0-9]{1,12}/g, ' ')
+    .replace(/0x[a-fA-F0-9]{40}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const spamTag = post.hashtags.some((tag) => SPAM_TAG.test(tag))
+  if (spamTag && stripped.length < 80) return true
+  if (post.hashtags.length >= 4 && stripped.length < 80) return true
+  if (post.addresses.length && post.hashtags.length >= 2 && stripped.length < 40) return true
+  const explicitZero = post.likes === 0 && (post.reposts ?? 0) === 0 && (post.replies ?? 0) === 0
+  if (explicitZero && (post.followers == null || post.followers < 200)) return true
+  return false
+}
+
+function engagementOf(post: RawPost): number {
+  return (post.likes ?? 0) + (post.reposts ?? 0) + (post.replies ?? 0)
+}
+
+export function newsMentionsSubject(text: string, ticker: string, address: string | null, fullName: string | null = null): boolean {
+  if (address && text.toLowerCase().includes(address.toLowerCase())) return true
+  if (new RegExp(`(^|[^A-Za-z0-9])\\$${ticker}(?![A-Za-z0-9])`, 'i').test(text)) return true
+  const name = fullName?.trim()
+  if (name && name.includes(' ') && name.length >= 8 && text.toLowerCase().includes(name.toLowerCase())) return true
+  return false
+}
+
+export function topicsFromPosts(rows: Array<{ id: string; author: string; text: string; postedAt?: string | null; likes?: number | null; reposts?: number | null; replies?: number | null; followers?: number | null; url?: string | null }>): TopicCard[] {
+  const posts = rows.map((row) => toPost({
+    id: row.id,
+    text: row.text,
+    userScreenName: row.author,
+    createdAt: row.postedAt,
+    favoriteCount: row.likes,
+    retweetCount: row.reposts,
+    replyCount: row.replies,
+    userFollowers: row.followers,
+    url: row.url,
+  })).filter((post): post is RawPost => post !== null)
+  return cluster(posts)
 }
 
 function titleFor(key: string, posts: RawPost[]): string {
@@ -386,37 +532,32 @@ async function verifyAll(cards: TopicCard[]): Promise<TopicCard[]> {
 
 async function verify(card: TopicCard): Promise<TopicCard> {
   const checks: TopicVerification[] = []
-  const address = card.contractNote?.match(/0x[a-fA-F0-9]{40}|[1-9A-HJ-NP-Za-km-z]{32,44}/)?.[0]
-    || card.posts.map((post) => post.text.match(/0x[a-fA-F0-9]{40}/)?.[0]).find(Boolean)
+  const address = card.posts.map((post) => post.text.match(/0x[a-fA-F0-9]{40}/)?.[0]).find(Boolean)
+    || card.contractNote?.match(/0x[a-fA-F0-9]{40}/)?.[0]
     || null
   const ticker = card.title.startsWith('$') ? card.title.slice(1) : null
+  let fullName: string | null = null
   if (address) {
     const dex = await dexCheck(address)
-    if (dex) checks.push(dex)
+    if (dex) {
+      checks.push(dex.check)
+      fullName = dex.fullName
+    }
   }
-  if (ticker && !GENERIC.has(ticker)) {
-    const gecko = await geckoCheck(ticker, address)
-    if (gecko) checks.push(gecko)
-  }
-  if (ticker && newsliquidToken()) {
-    const news = await newsCheck(ticker)
+  if (newsliquidToken() && (ticker || address)) {
+    const news = await newsCheck(ticker, address, fullName)
     if (news) checks.push(news)
   }
-  const verified = checks.some((item) => item.verified)
-  const named = checks.some((item) => !item.verified && item.note)
   const contractVerified = checks.some((item) => item.verified && item.source === 'DexScreener')
+  const newsVerified = checks.some((item) => item.verified && item.source === 'OpenNews')
   let credibility: Credibility = '待确认'
-  let credibilityNote = '样本帖文以外，没有对上官方公告、项目文档或合约记录。'
+  let credibilityNote = '没有 $代码、完整合约地址或项目全名能对上的记录。仅有同名符号不算部分核实。'
   if (contractVerified) {
-    credibility = checks.filter((item) => item.verified).length >= 1 ? '已核实' : '部分核实'
-    credibilityNote = '合约地址和 DexScreener 返回的代币地址一致。这只说明链上有这个池子，不是投资结论。'
-  } else if (named) {
+    credibility = '已核实'
+    credibilityNote = 'DexScreener 按帖子里的合约地址返回了同一地址。链、流动性和创建时间都来自这个地址，不是按名称搜索。'
+  } else if (newsVerified) {
     credibility = '部分核实'
-    credibilityNote = '名称能在公开行情或新闻里见到，但合约地址没有对上，不能认定官方身份。'
-  }
-  if (verified && !contractVerified && ticker) {
-    credibility = '部分核实'
-    credibilityNote = '有新闻或名称匹配，合约地址仍未确认。'
+    credibilityNote = '新闻里出现了 $代码或完整合约地址。普通英文词或仅同名符号不算。'
   }
   return {
     ...card,
@@ -436,50 +577,37 @@ async function verify(card: TopicCard): Promise<TopicCard> {
   }
 }
 
-async function dexCheck(address: string): Promise<TopicVerification | null> {
-  const body = await cached(`dex:${address.toLowerCase()}`, 10 * 60_000, () => fetchJson<{ pairs?: { chainId?: string; url?: string; baseToken?: { address?: string; symbol?: string } }[] | null }>(
+async function dexCheck(address: string): Promise<{ check: TopicVerification; fullName: string | null } | null> {
+  const body = await cached(`dex:${address.toLowerCase()}`, 10 * 60_000, () => fetchJson<{ pairs?: { chainId?: string; url?: string; pairCreatedAt?: number; liquidity?: { usd?: number }; baseToken?: { address?: string; symbol?: string; name?: string } }[] | null }>(
     `https://api.dexscreener.com/latest/dex/tokens/${address}`,
     undefined,
     8000
   )).catch(() => null)
   const pair = body?.pairs?.find((item) => item.baseToken?.address?.toLowerCase() === address.toLowerCase())
-  if (!pair) return { source: 'DexScreener', url: `https://dexscreener.com/search?q=${address}`, note: `没有返回与 ${address} 一致的代币地址。`, verified: false }
-  return { source: 'DexScreener', url: pair.url || null, note: `${pair.chainId || '未知链'} 上的 ${pair.baseToken?.symbol || '代币'} 地址与样本一致。`, verified: true }
-}
-
-async function geckoCheck(ticker: string, address: string | null): Promise<TopicVerification | null> {
-  const body = await cached(`gecko:${ticker}`, 10 * 60_000, () => fetchJson<{ coins?: { id?: string; symbol?: string; name?: string }[] }>(
-    `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(ticker)}`,
-    undefined,
-    8000
-  )).catch(() => null)
-  const coin = body?.coins?.find((item) => item.symbol?.toUpperCase() === ticker)
-  if (!coin) return null
+  if (!pair) {
+    return { check: { source: 'DexScreener', url: `https://dexscreener.com/search?q=${address}`, note: `按地址 ${address} 查询，没有返回同一合约。`, verified: false }, fullName: null }
+  }
+  const created = pair.pairCreatedAt ? new Date(pair.pairCreatedAt).toISOString() : '暂无'
+  const liquidity = typeof pair.liquidity?.usd === 'number' ? pair.liquidity.usd : null
   return {
-    source: 'CoinGecko',
-    url: coin.id ? `https://www.coingecko.com/en/coins/${coin.id}` : 'https://www.coingecko.com',
-    note: address
-      ? `有同名符号 ${coin.name || ticker}。搜索接口没有返回合约，不能据此认定这个地址就是它。`
-      : `搜索到同名符号 ${coin.name || ticker}，没有合约地址可以对照。`,
-    verified: false,
+    fullName: pair.baseToken?.name && pair.baseToken.name.includes(' ') ? pair.baseToken.name : null,
+    check: {
+      source: 'DexScreener',
+      url: pair.url || null,
+      note: `链 ${pair.chainId || '未知'}，流动性 ${liquidity == null ? '暂无' : liquidity} 美元，池子创建于 ${created}。地址与帖子中的合约一致。`,
+      verified: true,
+    },
   }
 }
 
-async function newsCheck(ticker: string): Promise<TopicVerification | null> {
+async function newsCheck(ticker: string | null, address: string | null, fullName: string | null): Promise<TopicVerification | null> {
+  if (!ticker && !address) return null
   try {
-    const { body } = await newsliquidRequest('/open/news_search', { method: 'POST', body: { q: ticker, limit: 5, page: 1 } })
-    const rows = asArray(body)
-    const hit = rows.map(asRecord).find((row) => {
-      const text = `${str(row?.text) || ''} ${str(row?.title) || ''}`.toUpperCase()
-      return text.includes(ticker)
-    })
+    const { body } = await newsliquidRequest('/open/news_search', { method: 'POST', body: { q: address || `$${ticker}`, limit: 5, page: 1 } })
+    const hit = asArray(body).map(asRecord).find((row) => newsMentionsSubject(`${str(row?.text) || ''} ${str(row?.title) || ''}`, ticker || '', address, fullName))
     if (!hit) return null
-    return {
-      source: 'OpenNews',
-      url: str(hit.link),
-      note: `新闻标题或正文出现 ${ticker}：${(str(hit.text) || str(hit.title) || '').slice(0, 140)}`,
-      verified: false,
-    }
+    const headline = (str(hit.text) || str(hit.title) || '').slice(0, 140)
+    return { source: 'OpenNews', url: str(hit.link), note: `新闻精确出现 $代码或合约地址：${headline}`, verified: true }
   } catch {
     return null
   }
@@ -622,7 +750,31 @@ function num(value: unknown): number | null {
 
 function cacheKey(): string {
   const stamp = createHash('sha256').update(`${secretValue('AI_API_KEY') || ''}|${secretValue('NEWSLIQUID_API_TOKEN') || ''}|${secretValue('X_BEARER_TOKEN') || ''}`).digest('hex').slice(0, 10)
-  return `topic-board:${ymd(Date.now())}:${stamp}`
+  return `topic-board:v3:${ymd(Date.now())}:${stamp}`
+}
+
+const poolMemory: RawPost[] = []
+
+async function readPool(): Promise<RawPost[]> {
+  let stored: RawPost[] = []
+  try {
+    const remote = await getCache({ namespace: 'research-topics' }).get('posts-v3')
+    if (Array.isArray(remote)) {
+      stored = remote.filter((item): item is RawPost => Boolean(item && typeof item === 'object' && typeof (item as RawPost).id === 'string'))
+    }
+  } catch {
+    stored = []
+  }
+  return dedupePosts([...stored, ...poolMemory]).filter((post) => (post.time ?? 0) >= Date.now() - WINDOW_MS)
+}
+
+async function writePool(posts: RawPost[]) {
+  poolMemory.splice(0, poolMemory.length, ...posts)
+  try {
+    await getCache({ namespace: 'research-topics' }).set('posts-v3', posts, { ttl: 24 * 60 * 60, tags: ['research-topics'], name: 'topic-posts-24h' })
+  } catch {
+    // The in-process pool still accumulates until this instance restarts.
+  }
 }
 
 const memory = new Map<string, { exp: number; value: TopicBoard }>()

@@ -41,8 +41,10 @@ npm start
 | 5 分钟波动 | 实时，免密钥 | 无 | 用上述交易所的 5 分钟 K 线计算。绝对变化超过 10% 才进入异常；核对不全标为待确认 |
 | 交易所成交 | 实时，免密钥 | 无 | OKX 永续公开成交。这不是链上充提 |
 | 链上转账 | 未配置 | `WHALE_ALERT_API_KEY` | https://whale-alert.io 申请 key |
-| 新闻 | 未配置 | `NEWS_API_KEY` | https://cryptopanic.com/developers/api/ 创建 token |
-| X 讨论 | 未配置 | `X_BEARER_TOKEN` | https://developer.x.com 创建应用并生成 Bearer Token |
+| 新闻 | NewsLiquid 优先 | `NEWSLIQUID_API_TOKEN` | https://6551.io/mcp 。请求 `POST https://ai.6551.io/open/news_search`，头 `Authorization: Bearer`。每日热点 `GET /open/free_hot` 按仓库客户端不带 token。`NEWS_API_KEY` 是 CryptoPanic 可选兜底 |
+| X 讨论 | NewsLiquid 优先 | `NEWSLIQUID_API_TOKEN` | `POST /open/twitter_search` 与 `POST /open/twitter_watch`，同样 Bearer。`X_BEARER_TOKEN` 可选 |
+| 聪明钱信号 | 未配置时跳过 | `NEWSLIQUID_API_TOKEN` | 只读 `GET /open/trader/routers`，再 `POST /open/trader/{trader}/{api}/market/signal-list`。不下单 |
+| 自检 | 随时可开 | 同上 | `GET /api/research/newsliquid/health` 返回各接口 HTTP 状态，不返回 token |
 | AI 对话 | 未配置 | `AI_API_KEY`，可选 `AI_BASE_URL`、`AI_MODEL` | 任何兼容 `/chat/completions` 的密钥。不填时页面不会编造回答 |
 | 演示快照 | 关闭 | `RESEARCH_ALLOW_DEMO=1` | 只有显式设为 `1` 才启用，页面会标明演示 |
 

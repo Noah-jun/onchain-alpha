@@ -1,6 +1,7 @@
 import type { DiscussionPost, DiscussionTopic, Provenance } from '@/domain/types'
 import { DEMO_TOPICS } from '@/research/demo/catalog'
 import { demoAllowed, envSet, missingKey } from '@/research/env'
+import { loadOpenTwitterTopics, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
@@ -106,7 +107,38 @@ interface XTweet {
 }
 
 export async function loadTopics() {
-  return getSocialAdapter().listTopics()
+  if (demoAllowed()) return new DemoSocialAdapter().listTopics()
+  if (newsliquidConfigured()) {
+    try {
+      const items = await loadOpenTwitterTopics()
+      if (items.length) {
+        return {
+          items,
+          provenance: items[0].provenance,
+          error: null,
+        }
+      }
+      if (envSet('X_BEARER_TOKEN')) return new XRecentSearchAdapter().listTopics()
+      return {
+        items: [],
+        provenance: failedLiveProvenance('OpenTwitter', 'OpenTwitter 没有返回帖文，也没有配置 X_BEARER_TOKEN。'),
+        error: 'OpenTwitter 没有返回帖文',
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '请求失败'
+      if (envSet('X_BEARER_TOKEN')) {
+        const fallback = await new XRecentSearchAdapter().listTopics()
+        return { ...fallback, error: `OpenTwitter 失败：${message}` }
+      }
+      return {
+        items: [],
+        provenance: failedLiveProvenance('OpenTwitter', `OpenTwitter 失败：${message}`),
+        error: message,
+      }
+    }
+  }
+  if (envSet('X_BEARER_TOKEN')) return new XRecentSearchAdapter().listTopics()
+  return new UnconfiguredSocialAdapter(`${newsliquidMissing()}。X_BEARER_TOKEN 是可选兜底。`).listTopics()
 }
 
 export async function loadTopic(id: string): Promise<DiscussionTopic | null> {

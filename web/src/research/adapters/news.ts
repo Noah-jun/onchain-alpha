@@ -2,16 +2,64 @@ import type { NewsArticle, Provenance, ResearchNote } from '@/domain/types'
 import { DEMO_NEWS } from '@/research/demo/catalog'
 import { demoAllowed, envSet, missingKey } from '@/research/env'
 import { fetchJson } from '@/research/http'
+import { loadDailyHotArticles, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 
 export async function loadNews(): Promise<{ items: NewsArticle[]; provenance: Provenance; error: string | null }> {
   if (demoAllowed()) {
     return { items: DEMO_NEWS, provenance: demoProvenance('演示新闻稿', 'RESEARCH_ALLOW_DEMO=1，这些是演示稿，不是实时新闻。'), error: null }
   }
-  if (!envSet('NEWS_API_KEY')) {
-    const reason = missingKey('NEWS_API_KEY')
-    return { items: [], provenance: unconfiguredProvenance('新闻', reason), error: reason }
+  const items: NewsArticle[] = []
+  const problems: string[] = []
+  if (!newsliquidConfigured()) {
+    problems.push(newsliquidMissing())
+  } else {
+    try {
+      items.push(...await loadOpenNewsArticles())
+    } catch (error) {
+      problems.push(`OpenNews 失败：${error instanceof Error ? error.message : '请求失败'}`)
+    }
   }
+  try {
+    items.push(...await loadDailyHotArticles())
+  } catch (error) {
+    problems.push(`每日热点失败：${error instanceof Error ? error.message : '请求失败'}`)
+  }
+  if (!items.length && envSet('NEWS_API_KEY')) {
+    const fallback = await loadCryptoPanic()
+    if (fallback.items.length || !problems.length) return fallback
+    return {
+      items: fallback.items,
+      provenance: fallback.provenance,
+      error: [...problems, fallback.error].filter(Boolean).join('；'),
+    }
+  }
+  if (!items.length) {
+    const reason = problems.join('；') || missingKey('NEWSLIQUID_API_TOKEN')
+    const unconfigured = !newsliquidConfigured() && problems.every((item) => item.includes('NEWSLIQUID_API_TOKEN') || item.includes('每日热点'))
+    return {
+      items: [],
+      provenance: unconfigured
+        ? unconfiguredProvenance('OpenNews', newsliquidMissing())
+        : failedLiveProvenance('OpenNews / 6551 daily-news', reason),
+      error: reason,
+    }
+  }
+  const seen = new Set<string>()
+  const unique = items.filter((item) => seen.has(item.id) ? false : (seen.add(item.id), true))
+  return {
+    items: unique,
+    provenance: liveProvenance(
+      newsliquidConfigured() ? 'OpenNews / 6551 daily-news' : '6551 daily-news',
+      new Date().toISOString(),
+      problems.length ? problems.join('；') : 'OpenNews 与每日热点。CryptoPanic 只在这两者都没有结果且配置了 NEWS_API_KEY 时使用。',
+      'https://ai.6551.io'
+    ),
+    error: problems.find((item) => item.includes('NEWSLIQUID_API_TOKEN')) || null,
+  }
+}
+
+async function loadCryptoPanic(): Promise<{ items: NewsArticle[]; provenance: Provenance; error: string | null }> {
   try {
     const token = process.env.NEWS_API_KEY!.trim()
     const body = await fetchJson<{ results?: CryptoPanicPost[] }>(

@@ -3,6 +3,7 @@ import { DEMO_FLOWS } from '@/research/demo/catalog'
 import { demoAllowed, envSet, missingKey } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
+import { loadOpenTradeSignals, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { loadLivePrints } from '@/research/publicMarkets'
 
 export async function loadFlows(extra: string[] = []): Promise<{
@@ -16,17 +17,27 @@ export async function loadFlows(extra: string[] = []): Promise<{
     return { items: DEMO_FLOWS, provenance, onchainProvenance: provenance, error: null }
   }
   const prints = await loadLivePrints(extra)
+  let signals: WhaleTransfer[] = []
+  let signalNote = newsliquidConfigured() ? '' : newsliquidMissing()
+  if (newsliquidConfigured()) {
+    try {
+      signals = await loadOpenTradeSignals()
+    } catch (error) {
+      signalNote = `OpenTrade 失败：${error instanceof Error ? error.message : '请求失败'}`
+      prints.provenance = { ...prints.provenance, note: `${prints.provenance.note} ${signalNote}` }
+    }
+  }
   if (!envSet('WHALE_ALERT_API_KEY')) {
     return {
-      items: prints.items,
+      items: [...prints.items, ...signals],
       provenance: prints.provenance,
-      onchainProvenance: unconfiguredProvenance('链上大额转账', missingKey('WHALE_ALERT_API_KEY')),
+      onchainProvenance: unconfiguredProvenance('链上大额转账', `${missingKey('WHALE_ALERT_API_KEY')}${signalNote ? `。OpenTrade：${signalNote}` : ''}`),
       error: prints.error,
     }
   }
   const chain = await loadWhaleAlert()
   return {
-    items: [...prints.items, ...chain.items],
+    items: [...prints.items, ...signals, ...chain.items],
     provenance: prints.provenance,
     onchainProvenance: chain.provenance,
     error: prints.error,

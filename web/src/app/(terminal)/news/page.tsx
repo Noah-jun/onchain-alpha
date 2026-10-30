@@ -7,6 +7,7 @@ import { formatShanghai } from '@/domain/format'
 import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 import { rememberSeen } from '@/components/terminal/seen'
+import { shortTitle } from '@/domain/newsText'
 
 interface NewsResponse {
   items: NewsArticle[]
@@ -77,9 +78,9 @@ export default function NewsPage() {
 }
 
 function NewsCard({ article }: { article: NewsArticle }) {
+  const title = shortTitle(article.title, article.summary, article.body)
   const copy = useTranslatedCopy([
-    { text: article.title, zh: article.sourceZh?.title },
-    { text: article.summary, zh: article.sourceZh?.summary },
+    { text: title, zh: title === article.title ? article.sourceZh?.title : undefined },
   ])
   return (
     <li>
@@ -88,10 +89,9 @@ function NewsCard({ article }: { article: NewsArticle }) {
           <span>{article.publisher} · {formatShanghai(article.publishedAt)}</span>
           <span>{article.provenance.mode === 'demo' ? '演示' : article.provenance.mode === 'live' ? '实时' : '未配置'}</span>
         </div>
-        <h2 className="mt-2 text-lg">
-          <Link href={`/news/${article.id}`} className="hover:underline">{copy.view(article.title)}</Link>
+        <h2 className="mt-2 text-base font-medium leading-6">
+          <Link href={`/news/${article.id}`} className="line-clamp-2 text-neutral-900">{copy.view(title)}</Link>
         </h2>
-        <p className="mt-2 text-sm leading-6 text-neutral-700">{copy.view(article.summary)}</p>
         <p className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-500">
           <span>{article.analysis.eventType}</span>
           <Assets assets={article.analysis.relatedAssets} />

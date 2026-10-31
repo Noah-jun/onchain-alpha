@@ -4,7 +4,12 @@ import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 import { loadOpenTradeSignals, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
+import { asArray, asRecord, newsliquidRequest, unwrapData } from '@/research/newsliquid/client'
 import { loadLivePrints } from '@/research/publicMarkets'
+import { flowDirection, parseWhaleAlertTweet } from '@/research/whaleAlertTweet'
+
+const WHALE_X_SOURCE = 'Whale Alert（X @whale_alert，经 NewsLiquid）'
+const WHALE_X_NOTE = '转出和转入名称是 Whale Alert 自己的标注，不是本站识别的地址主人。'
 
 export async function loadFlows(extra: string[] = []): Promise<{
   items: WhaleTransfer[]
@@ -27,21 +32,124 @@ export async function loadFlows(extra: string[] = []): Promise<{
       prints.provenance = { ...prints.provenance, note: `${prints.provenance.note} ${signalNote}` }
     }
   }
-  if (!envSet('WHALE_ALERT_API_KEY')) {
-    return {
-      items: [...prints.items, ...signals],
-      provenance: prints.provenance,
-      onchainProvenance: unconfiguredProvenance('链上大额转账', `${missingKey('WHALE_ALERT_API_KEY')}${signalNote ? `。OpenTrade：${signalNote}` : ''}`),
-      error: prints.error,
-    }
-  }
-  const chain = await loadWhaleAlert()
+  const chain = envSet('WHALE_ALERT_API_KEY')
+    ? await loadWhaleAlert()
+    : newsliquidConfigured()
+      ? await loadWhaleAlertTweets()
+      : {
+          items: [],
+          provenance: unconfiguredProvenance('链上大额转账', `${missingKey('NEWSLIQUID_API_TOKEN')} 未填写 Whale Alert key 时，大额转账读取 X @whale_alert，需要 NewsLiquid token。${signalNote ? ` OpenTrade：${signalNote}` : ''}`),
+          error: missingKey('NEWSLIQUID_API_TOKEN'),
+        }
   return {
     items: [...prints.items, ...signals, ...chain.items],
     provenance: prints.provenance,
     onchainProvenance: chain.provenance,
     error: prints.error,
   }
+}
+
+async function loadWhaleAlertTweets(): Promise<{ items: WhaleTransfer[]; provenance: Provenance; error: string | null }> {
+  try {
+    const { body } = await newsliquidRequest('/open/twitter_user_tweets', {
+      method: 'POST',
+      body: { username: 'whale_alert', maxResults: 100, product: 'Latest', includeReplies: false, includeRetweets: false },
+    })
+    const items = asArray(unwrapData(body)).flatMap((row) => {
+      const transfer = tweetToTransfer(row)
+      return transfer ? [transfer] : []
+    })
+    return {
+      items,
+      provenance: liveProvenance(WHALE_X_SOURCE, new Date().toISOString(), items.length ? WHALE_X_NOTE : `${WHALE_X_NOTE} 这次没有解析出转账，未补写演示数据。`, 'https://x.com/whale_alert'),
+      error: null,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '请求失败'
+    return {
+      items: [],
+      provenance: failedLiveProvenance(WHALE_X_SOURCE, `链上源请求失败（${message}），未回退到演示转账`, 'https://x.com/whale_alert'),
+      error: message,
+    }
+  }
+}
+
+function tweetToTransfer(value: unknown): WhaleTransfer | null {
+  const row = asRecord(value)
+  if (!row) return null
+  const text = textOf(row.text) || textOf(row.full_text)
+  const id = textOf(row.id) || textOf(row.twId) || textOf(row.tweet_id)
+  const timestamp = timeOf(row.createdAt ?? row.created_at)
+  if (!text || !id || !timestamp) return null
+  const parsed = parseWhaleAlertTweet(text)
+  if (!parsed) return null
+  const tweetUrl = textOf(row.url) || (/^\d+$/.test(id) ? `https://x.com/whale_alert/status/${id}` : null)
+  const direction = flowDirection(parsed.kind, parsed.from, parsed.to)
+  const named = Boolean(parsed.from || parsed.to)
+  const observation: FlowObservation = named ? 'onchain_observed' : 'uncertain'
+  const evidence = [
+    { quote: text, source: 'X @whale_alert', url: tweetUrl },
+    ...(parsed.whaleUrl ? [{ quote: 'Whale Alert 交易页', source: 'whale-alert.io', url: parsed.whaleUrl }] : []),
+  ]
+  const analysis: ResearchNote = {
+    eventType: kindLabel(parsed.kind),
+    relatedAssets: [parsed.symbol],
+    sentiment: '未知',
+    impact: '只能描述这条推文写出的数量和 Whale Alert 标注。标注不能推出交易意图。',
+    impactPath: 'X @whale_alert → 推文原文。交易所是否入账未知。',
+    timeHorizon: '未知',
+    evidence,
+    risks: ['标注会过期或冲突。', '大额转移不等于即将买卖。'],
+    counterpoints: ['推文里的 whale-alert.io 链接可以打开核对。'],
+    confidence: '低',
+    confidenceBasis: '数量和双方名称来自 @whale_alert 原文，没有交易所回执。',
+    heatTags: [],
+    facts: [`原文：${text}`, `资产 ${parsed.symbol}，数量 ${parsed.amount}。`],
+    inferences: [],
+    unknowns: ['交易所是否入账', '地址持有人的意图'],
+  }
+  return {
+    id: `wa-x-${id}`,
+    asset: parsed.symbol,
+    amount: parsed.amount,
+    amountUsd: parsed.amountUsd,
+    fromAddress: null,
+    toAddress: null,
+    fromTag: parsed.from ? `${parsed.from}（Whale Alert 标注）` : null,
+    toTag: parsed.to ? `${parsed.to}（Whale Alert 标注）` : null,
+    chain: parsed.chain || 'unknown',
+    timestamp,
+    txHash: parsed.txHash,
+    explorerUrl: parsed.whaleUrl,
+    observation,
+    direction,
+    attributionNote: WHALE_X_NOTE,
+    analysis,
+    provenance: liveProvenance(WHALE_X_SOURCE, timestamp, WHALE_X_NOTE, tweetUrl || parsed.whaleUrl),
+  }
+}
+
+function kindLabel(kind: 'transfer' | 'mint' | 'burn' | 'lock' | 'unlock'): string {
+  if (kind === 'mint') return '铸造'
+  if (kind === 'burn') return '销毁'
+  if (kind === 'lock') return '锁定'
+  if (kind === 'unlock') return '解锁'
+  return '大额转移'
+}
+
+function textOf(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : typeof value === 'number' && Number.isFinite(value) ? String(value) : null
+}
+
+function timeOf(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const millis = value > 10_000_000_000 ? value : value * 1000
+    return new Date(millis).toISOString()
+  }
+  const text = textOf(value)
+  if (!text) return null
+  const parsed = Date.parse(text)
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null
 }
 
 async function loadWhaleAlert(): Promise<{ items: WhaleTransfer[]; provenance: Provenance; error: string | null }> {

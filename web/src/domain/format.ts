@@ -63,6 +63,10 @@ export function directionLabel(value: string): string {
   if (value === 'transfer') return '地址间转移'
   if (value === 'buy') return '主动买入'
   if (value === 'sell') return '主动卖出'
+  if (value === 'mint') return '铸造'
+  if (value === 'burn') return '销毁'
+  if (value === 'lock') return '锁定'
+  if (value === 'unlock') return '解锁'
   return '方向未知'
 }
 

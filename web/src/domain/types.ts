@@ -154,7 +154,7 @@ export interface FundingOpportunity {
 
 export type FlowObservation = 'onchain_observed' | 'exchange_confirmed' | 'uncertain' | 'exchange_print'
 
-export type FlowDirection = 'deposit' | 'withdraw' | 'transfer' | 'unknown' | 'buy' | 'sell'
+export type FlowDirection = 'deposit' | 'withdraw' | 'transfer' | 'unknown' | 'buy' | 'sell' | 'mint' | 'burn' | 'lock' | 'unlock'
 
 export interface WhaleTransfer {
   id: string

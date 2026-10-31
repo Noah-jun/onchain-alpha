@@ -51,7 +51,7 @@ export const KEY_FIELDS = [
   { name: 'DEEPL_API_KEY', header: 'x-deepl-api-key', label: 'DeepL API Key', detail: '没有 AI key 时用来翻译新闻和讨论。官方接口 https://api.deepl.com/v2/translate ；以 :fx 结尾的 Free key 走 api-free.deepl.com。文档：https://developers.deepl.com' },
   { name: 'NEWS_API_KEY', header: 'x-news-api-key', label: 'CryptoPanic Key', detail: '可选兜底。OpenNews 和每日热点都没有结果时才使用。' },
   { name: 'X_BEARER_TOKEN', header: 'x-x-bearer-token', label: 'X Bearer Token', detail: '可选兜底。没有 NewsLiquid token 时才搜索 X。' },
-  { name: 'WHALE_ALERT_API_KEY', header: 'x-whale-alert-key', label: 'Whale Alert Key', detail: '可选。用于链上大额转账。公开成交和 OpenTrade 不依赖它。' },
+  { name: 'WHALE_ALERT_API_KEY', header: 'x-whale-alert-key', label: 'Whale Alert Key', detail: '可选。填写后，资金异动里的大额转账走 Whale Alert 付费接口。不填则通过 NewsLiquid 读取 X @whale_alert，不需要这把 key。公开成交和 OpenTrade 不依赖它。' },
   { name: 'COINGECKO_API_KEY', header: 'x-coingecko-api-key', label: 'CoinGecko Key', detail: '可选。不填也能用 CoinGecko 免费接口。' },
 ] as const
 

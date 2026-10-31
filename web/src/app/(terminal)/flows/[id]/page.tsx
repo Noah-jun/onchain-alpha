@@ -32,6 +32,7 @@ export default function FlowDetailPage() {
             <Item label="浏览器" value={data.explorerUrl ? <a className="underline" href={data.explorerUrl} target="_blank" rel="noreferrer">打开</a> : '未提供'} />
           </dl>
           <p className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm leading-6">{data.attributionNote}</p>
+          <OriginalTweet transfer={data} />
           <AnalysisCard note={data.analysis} />
           <ChatPanel
             context={{ type: 'flow', id: data.id }}
@@ -40,6 +41,28 @@ export default function FlowDetailPage() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+function OriginalTweet({ transfer }: { transfer: WhaleTransfer }) {
+  const original = transfer.analysis.facts.find((item) => item.startsWith('原文：'))?.slice('原文：'.length)
+  const links = transfer.analysis.evidence.filter((item) => item.url)
+  if (!original && !links.length) return null
+  if (!transfer.provenance.source.includes('@whale_alert')) return null
+  return (
+    <section className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm leading-6">
+      <h2 className="text-sm font-semibold">原文</h2>
+      {original ? <p className="mt-2">{original}</p> : null}
+      {links.length ? (
+        <ul className="mt-3 space-y-1 text-xs">
+          {links.map((item) => (
+            <li key={`${item.source}-${item.url}`}>
+              <a className="underline" href={item.url || undefined} target="_blank" rel="noreferrer">{item.source}</a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   )
 }
 

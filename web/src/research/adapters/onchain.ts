@@ -55,13 +55,15 @@ async function loadWhaleAlertTweets(): Promise<{ items: WhaleTransfer[]; provena
       method: 'POST',
       body: { username: 'whale_alert', maxResults: 100, product: 'Latest', includeReplies: false, includeRetweets: false },
     })
-    const items = asArray(unwrapData(body)).flatMap((row) => {
+    const rows = asArray(unwrapData(body))
+    const items = rows.flatMap((row) => {
       const transfer = tweetToTransfer(row)
       return transfer ? [transfer] : []
     })
+    const counts = `拉取 ${rows.length} 条推文，解析出 ${items.length} 条转账。`
     return {
       items,
-      provenance: liveProvenance(WHALE_X_SOURCE, new Date().toISOString(), items.length ? WHALE_X_NOTE : `${WHALE_X_NOTE} 这次没有解析出转账，未补写演示数据。`, 'https://x.com/whale_alert'),
+      provenance: liveProvenance(WHALE_X_SOURCE, new Date().toISOString(), items.length ? `${WHALE_X_NOTE} ${counts}` : `${WHALE_X_NOTE} ${counts}未补写演示数据。`, 'https://x.com/whale_alert'),
       error: null,
     }
   } catch (error) {
@@ -77,22 +79,25 @@ async function loadWhaleAlertTweets(): Promise<{ items: WhaleTransfer[]; provena
 function tweetToTransfer(value: unknown): WhaleTransfer | null {
   const row = asRecord(value)
   if (!row) return null
-  const text = textOf(row.text) || textOf(row.full_text)
-  const id = textOf(row.id) || textOf(row.twId) || textOf(row.tweet_id)
-  const timestamp = timeOf(row.createdAt ?? row.created_at)
+  const nested = asRecord(row.tweet) || asRecord(row.status)
+  const text = tweetText(row) || (nested ? tweetText(nested) : null)
+  const id = tweetId(row) || (nested ? tweetId(nested) : null)
+  const timestamp = timeOf(row.createdAt ?? row.created_at ?? row.ts ?? nested?.createdAt ?? nested?.created_at ?? nested?.ts)
   if (!text || !id || !timestamp) return null
-  const parsed = parseWhaleAlertTweet(text)
+  const parsed = parseWhaleAlertTweet(`${text}\n${expandedUrls(row)}`)
   if (!parsed) return null
   const tweetUrl = textOf(row.url) || (/^\d+$/.test(id) ? `https://x.com/whale_alert/status/${id}` : null)
   const direction = flowDirection(parsed.kind, parsed.from, parsed.to)
   const named = Boolean(parsed.from || parsed.to)
   const observation: FlowObservation = named ? 'onchain_observed' : 'uncertain'
+  const sourceLink = parsed.whaleUrl || parsed.link
   const evidence = [
     { quote: text, source: 'X @whale_alert', url: tweetUrl },
     ...(parsed.whaleUrl ? [{ quote: 'Whale Alert 交易页', source: 'whale-alert.io', url: parsed.whaleUrl }] : []),
+    ...(parsed.link && parsed.link !== parsed.whaleUrl ? [{ quote: '推文中的链接', source: parsed.link, url: parsed.link }] : []),
   ]
   const analysis: ResearchNote = {
-    eventType: kindLabel(parsed.kind),
+    eventType: parsed.stolen ? '被盗资金' : kindLabel(parsed.kind),
     relatedAssets: [parsed.symbol],
     sentiment: '未知',
     impact: '只能描述这条推文写出的数量和 Whale Alert 标注。标注不能推出交易意图。',
@@ -104,7 +109,7 @@ function tweetToTransfer(value: unknown): WhaleTransfer | null {
     confidence: '低',
     confidenceBasis: '数量和双方名称来自 @whale_alert 原文，没有交易所回执。',
     heatTags: [],
-    facts: [`原文：${text}`, `资产 ${parsed.symbol}，数量 ${parsed.amount}。`],
+    facts: [`原文：${text}`, `资产 ${parsed.symbol}，数量 ${parsed.amount}。`, ...(parsed.stolen ? ['Whale Alert 标为被盗资金。'] : [])],
     inferences: [],
     unknowns: ['交易所是否入账', '地址持有人的意图'],
   }
@@ -120,13 +125,31 @@ function tweetToTransfer(value: unknown): WhaleTransfer | null {
     chain: parsed.chain || 'unknown',
     timestamp,
     txHash: parsed.txHash,
-    explorerUrl: parsed.whaleUrl,
+    explorerUrl: sourceLink,
     observation,
     direction,
     attributionNote: WHALE_X_NOTE,
     analysis,
     provenance: liveProvenance(WHALE_X_SOURCE, timestamp, WHALE_X_NOTE, tweetUrl || parsed.whaleUrl),
   }
+}
+
+function tweetText(row: Record<string, unknown>): string | null {
+  return textOf(row.text) || textOf(row.full_text) || textOf(row.content)
+}
+
+function tweetId(row: Record<string, unknown>): string | null {
+  return textOf(row.id) || textOf(row.id_str) || textOf(row.twId) || textOf(row.tweet_id)
+}
+
+function expandedUrls(row: Record<string, unknown>): string {
+  const urls = row.urls
+  if (!Array.isArray(urls)) return ''
+  return urls.flatMap((item) => {
+    const record = asRecord(item)
+    const expanded = textOf(record?.expandedUrl) || textOf(record?.expanded_url) || textOf(record?.url)
+    return expanded ? [expanded] : []
+  }).join('\n')
 }
 
 function kindLabel(kind: 'transfer' | 'mint' | 'burn' | 'lock' | 'unlock'): string {

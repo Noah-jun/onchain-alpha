@@ -46,4 +46,42 @@ assert(parseWhaleAlertTweet('Just a market comment about bitcoin flows') === nul
 assert(parseWhaleAlertTweet('🚨 1,000 #BTC transferred from unknown wallet to #Coinbase') === null, 'missing usd is not guessed')
 assert(parseWhaleAlertTweet('🚨 1,000 #BTC (68,000,000 USD) moved somewhere') === null, 'unknown verb is skipped')
 
+const samples = [
+  ['🚓 🚓 🚓 🚓  120,000,000 $TRX (39,210,232 USD) of stolen funds transferred from Binance Hack 2026 to unknown wallet\n\nhttps://t.co/lMHq0rvW7L', {
+    amount: 120000000, symbol: 'TRX', amountUsd: 39210232, from: 'Binance Hack 2026', to: 'unknown wallet', stolen: true, link: 'https://t.co/lMHq0rvW7L', direction: 'withdraw' as const,
+  }],
+  ['🚨 🚨 🚨  609,699 $SOL (58,512,315 USD) transferred from unknown wallet to Coinbase Institutional\n\nhttps://t.co/zAxmmUG9Wj', {
+    amount: 609699, symbol: 'SOL', amountUsd: 58512315, from: 'unknown wallet', to: 'Coinbase Institutional', stolen: false, link: 'https://t.co/zAxmmUG9Wj', direction: 'deposit' as const,
+  }],
+  ['🚨 🚨 🚨 🚨  1,199 $BTC (92,582,830 USD) transferred from #OKX to unknown wallet\n\nhttps://t.co/4CGI3jfZLo', {
+    amount: 1199, symbol: 'BTC', amountUsd: 92582830, from: 'OKX', to: 'unknown wallet', stolen: false, link: 'https://t.co/4CGI3jfZLo', direction: 'withdraw' as const,
+  }],
+  ['🚨 🚨 🚨 🚨 🚨 🚨 🚨 🚨  195,900,100 $USDT (195,690,976 USD) transferred from #Bitfinex to Tether Treasury\n\nhttps://t.co/5VgFAri3L8', {
+    amount: 195900100, symbol: 'USDT', amountUsd: 195690976, from: 'Bitfinex', to: 'Tether Treasury', stolen: false, link: 'https://t.co/5VgFAri3L8', direction: 'withdraw' as const,
+  }],
+  ['🚨 🚨 🚨 🚨 🚨 🚨 🚨 🚨 🚨 🚨  261,739,220 $USDC (261,868,912 USD) transferred from unknown wallet to #Coinbase\n\nhttps://t.co/ilmnaPDVnV', {
+    amount: 261739220, symbol: 'USDC', amountUsd: 261868912, from: 'unknown wallet', to: 'Coinbase', stolen: false, link: 'https://t.co/ilmnaPDVnV', direction: 'deposit' as const,
+  }],
+  ['🚨 🚨 🚨 🚨 🚨  115,000,000 $USDC (115,042,032 USD) transferred from #Aave to unknown wallet\n\nhttps://t.co/rKbSwNdp6a', {
+    amount: 115000000, symbol: 'USDC', amountUsd: 115042032, from: 'Aave', to: 'unknown wallet', stolen: false, link: 'https://t.co/rKbSwNdp6a', direction: 'transfer' as const,
+  }],
+  ['🚨 🚨 🚨  699 $BTC (53,736,700 USD) transferred from #Paxos to unknown wallet\n\nhttps://t.co/x2gX41ywHo', {
+    amount: 699, symbol: 'BTC', amountUsd: 53736700, from: 'Paxos', to: 'unknown wallet', stolen: false, link: 'https://t.co/x2gX41ywHo', direction: 'withdraw' as const,
+  }],
+] as const
+
+for (const [text, expected] of samples) {
+  const parsed = parseWhaleAlertTweet(text)
+  assert(parsed?.amount === expected.amount, `${expected.symbol} amount`)
+  assert(parsed?.symbol === expected.symbol, `${expected.symbol} symbol`)
+  assert(parsed?.amountUsd === expected.amountUsd, `${expected.symbol} usd`)
+  assert(parsed?.from === expected.from && parsed?.to === expected.to, `${expected.symbol} parties`)
+  assert(parsed?.kind === 'transfer', `${expected.symbol} kind`)
+  assert(parsed?.stolen === expected.stolen, `${expected.symbol} stolen`)
+  assert(parsed?.whaleUrl === null, `${expected.symbol} has no whale-alert.io url`)
+  assert(parsed?.link === expected.link, `${expected.symbol} keeps the t.co link`)
+  assert(parsed != null && parsed.amountUsd >= 500000, `${expected.symbol} stays above the default 500000 filter`)
+  assert(parsed != null && flowDirection(parsed.kind, parsed.from, parsed.to) === expected.direction, `${expected.symbol} direction`)
+}
+
 console.log('whale alert tweets ok')

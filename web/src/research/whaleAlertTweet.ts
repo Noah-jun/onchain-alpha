@@ -9,7 +9,9 @@ export interface ParsedWhaleAlert {
   from: string | null
   to: string | null
   kind: WhaleTweetKind
+  stolen: boolean
   whaleUrl: string | null
+  link: string | null
   chain: string | null
   txHash: string | null
 }
@@ -20,7 +22,7 @@ const AMOUNT = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)`
 const HEAD = new RegExp(`${AMOUNT}\\s+([A-Za-z][A-Za-z0-9]{1,15})\\s+\\(${AMOUNT}\\s+USD\\)`, 'i')
 
 export function parseWhaleAlertTweet(text: string): ParsedWhaleAlert | null {
-  const { body, whaleUrl } = stripTweet(text)
+  const { body, whaleUrl, link } = stripTweet(text)
   const head = body.match(HEAD)
   if (!head) return null
   const amount = number(head[1])
@@ -37,7 +39,9 @@ export function parseWhaleAlertTweet(text: string): ParsedWhaleAlert | null {
     from: action.from,
     to: action.to,
     kind: action.kind,
+    stolen: /of stolen funds/i.test(body),
     whaleUrl,
+    link,
     chain: located.chain,
     txHash: located.txHash,
   }
@@ -85,16 +89,17 @@ function isExchange(partyName: string | null): boolean {
   return EXCHANGES.some((exchange) => name.includes(exchange))
 }
 
-function stripTweet(text: string): { body: string; whaleUrl: string | null } {
-  const urls = text.match(/https?:\/\/\S+/g) ?? []
-  const whaleUrl = urls.map((url) => url.replace(/[),.;]+$/g, '')).find((url) => /whale-alert\.io/i.test(url)) ?? null
+function stripTweet(text: string): { body: string; whaleUrl: string | null; link: string | null } {
+  const urls = (text.match(/https?:\/\/\S+/g) ?? []).map((url) => url.replace(/[),.;]+$/g, ''))
+  const whaleUrl = urls.find((url) => /whale-alert\.io/i.test(url)) ?? null
+  const link = whaleUrl || urls[0] || null
   const body = text
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, ' ')
-    .replace(/#([A-Za-z][A-Za-z0-9]{1,20})/g, '$1')
+    .replace(/[#$]([A-Za-z][A-Za-z0-9]{1,20})/g, '$1')
     .replace(/\s+/g, ' ')
     .trim()
-  return { body, whaleUrl }
+  return { body, whaleUrl, link }
 }
 
 function locate(url: string | null): { chain: string | null; txHash: string | null } {

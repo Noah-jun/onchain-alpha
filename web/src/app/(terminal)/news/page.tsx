@@ -2,9 +2,11 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import type { NewsArticle } from '@/domain/types'
+import type { DailyHotTweet, DailySection, NewsArticle } from '@/domain/types'
+import { DAILY_SECTION_FALLBACK } from '@/domain/dailySections'
 import { formatShanghai } from '@/domain/format'
 import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
+import { researchHeaders } from '@/components/terminal/settings'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 import { rememberSeen } from '@/components/terminal/seen'
 import { shortTitle } from '@/domain/newsText'
@@ -13,20 +15,52 @@ interface NewsResponse {
   items: NewsArticle[]
   provenance: NewsArticle['provenance']
   error: string | null
+  sections?: DailySection[]
+  tweets?: DailyHotTweet[]
 }
 
 export default function NewsPage() {
   const { data, loading, error, reload } = useResearch<NewsResponse>('/api/research/news')
+  const [section, setSection] = useState('全部')
+  const [sectionData, setSectionData] = useState<NewsResponse | null>(null)
+  const [sectionLoading, setSectionLoading] = useState(false)
+  const [sectionError, setSectionError] = useState('')
+  const [sectionRetry, setSectionRetry] = useState(0)
   const [eventType, setEventType] = useState('全部')
   const [sentiment, setSentiment] = useState('全部')
   const [heat, setHeat] = useState('全部')
   const [query, setQuery] = useState('')
-  const items = data?.items ?? []
+  const showingSection = section !== '全部'
+  const items = showingSection ? (sectionData?.items ?? []) : (data?.items ?? [])
+  const sections = data?.sections?.length ? data.sections : (sectionData?.sections?.length ? sectionData.sections : DAILY_SECTION_FALLBACK)
   useEffect(() => {
     if (data?.items.length) rememberSeen('news', data.items)
   }, [data])
-  const eventTypes = useMemo(() => ['全部', ...new Set(items.map((item) => item.analysis.eventType))], [items])
-  const sentiments = useMemo(() => ['全部', ...new Set(items.map((item) => item.analysis.sentiment))], [items])
+  useEffect(() => {
+    if (section === '全部') return
+    const controller = new AbortController()
+    setSectionLoading(true)
+    setSectionError('')
+    setSectionData(null)
+    fetch(`/api/research/news?subcategory=${encodeURIComponent(section)}`, { cache: 'no-store', headers: researchHeaders(), signal: controller.signal })
+      .then(async (response) => {
+        const json = await response.json() as NewsResponse
+        if (!response.ok) throw new Error(json.error || '加载失败')
+        if (controller.signal.aborted) return
+        setSectionData(json)
+        if (json.items.length) rememberSeen('news', json.items)
+      })
+      .catch((caught) => {
+        if (controller.signal.aborted) return
+        setSectionError(caught instanceof Error ? caught.message : '加载失败')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSectionLoading(false)
+      })
+    return () => controller.abort()
+  }, [section, sectionRetry])
+  const eventTypes = useMemo(() => withCurrent(['全部', ...new Set(items.map((item) => item.analysis.eventType))], eventType), [items, eventType])
+  const sentiments = useMemo(() => withCurrent(['全部', ...new Set(items.map((item) => item.analysis.sentiment))], sentiment), [items, sentiment])
   const filtered = items.filter((item) => {
     if (eventType !== '全部' && item.analysis.eventType !== eventType) return false
     if (sentiment !== '全部' && item.analysis.sentiment !== sentiment) return false
@@ -37,6 +71,8 @@ export default function NewsPage() {
     if (query && !blob.includes(query.trim().toLowerCase())) return false
     return true
   })
+  const view = showingSection ? sectionData : data
+  const tweets = showingSection ? (sectionData?.tweets ?? []) : []
 
   return (
     <div>
@@ -48,12 +84,21 @@ export default function NewsPage() {
       {error && !data ? <ErrorBlock message={error} onRetry={reload} /> : null}
       {data ? (
         <>
-          <DataNotice provenance={data.provenance} error={data.error} />
+          <DataNotice provenance={showingSection ? sectionData?.provenance : data.provenance} error={showingSection ? sectionData?.error : data.error} />
           <div className="mb-4 space-y-3">
             <label className="block text-xs text-neutral-500">
               搜索标题或资产
               <input value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 w-full rounded border border-[#e7e7e4] bg-[#f7f7f5] px-3 py-2 text-sm" />
             </label>
+            <div>
+              <p className="mb-2 text-xs text-neutral-500">日报板块</p>
+              <div className="flex flex-wrap gap-2">
+                <FilterButton pressed={section === '全部'} onClick={() => setSection('全部')}>全部</FilterButton>
+                {sections.map((item) => (
+                  <FilterButton key={item.key} pressed={section === item.key} onClick={() => setSection(item.key)}>{item.nameZh}</FilterButton>
+                ))}
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
               {eventTypes.map((item) => <FilterButton key={item} pressed={eventType === item} onClick={() => setEventType(item)}>{item}</FilterButton>)}
             </div>
@@ -66,19 +111,56 @@ export default function NewsPage() {
               ))}
             </div>
           </div>
-          {filtered.length ? (
-            <ul className="space-y-3">
-              {filtered.map((article) => <NewsCard key={article.id} article={article} />)}
-            </ul>
-          ) : <EmptyBlock title={data.provenance.mode === 'unconfigured' ? '未配置' : '暂无符合条件的新闻'} detail={data.provenance.note} />}
+          {showingSection && sectionLoading ? <LoadingBlock /> : null}
+          {showingSection && sectionError && !sectionData ? <ErrorBlock message={sectionError} onRetry={() => setSectionRetry((value) => value + 1)} /> : null}
+          {!showingSection || sectionData ? (
+            filtered.length ? (
+              <ul className="space-y-3">
+                {filtered.map((article) => <NewsCard key={article.id} article={article} />)}
+              </ul>
+            ) : <EmptyBlock title={(view?.provenance ?? data.provenance).mode === 'unconfigured' ? '未配置' : '暂无符合条件的新闻'} detail={(view?.provenance ?? data.provenance).note} />
+          ) : null}
+          {tweets.length ? <DailyTweets tweets={tweets} /> : null}
         </>
       ) : null}
     </div>
   )
 }
 
+function withCurrent(values: string[], current: string): string[] {
+  if (values.includes(current)) return values
+  return [...values, current]
+}
+
+function dailyTag(article: NewsArticle): string | null {
+  const grade = article.daily?.grade
+  const score = article.daily?.score
+  if (!grade && score == null) return null
+  if (grade && score != null) return `评级 ${grade} · ${score}`
+  if (grade) return `评级 ${grade}`
+  return `评级 · ${score}`
+}
+
+function DailyTweets({ tweets }: { tweets: DailyHotTweet[] }) {
+  return (
+    <section className="mt-6">
+      <h2 className="text-sm font-semibold">相关热门推文</h2>
+      <ul className="mt-2 space-y-2">
+        {tweets.map((tweet) => (
+          <li key={tweet.id} className="rounded-lg border border-[#e7e7e4] bg-white p-3">
+            <p className="text-xs text-neutral-500">{tweet.author}</p>
+            <p className="mt-1 line-clamp-2 text-sm leading-6 text-neutral-800">{tweet.text}</p>
+            {tweet.url ? <a className="mt-1 inline-block text-xs underline" href={tweet.url} target="_blank" rel="noreferrer">x.com</a> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function NewsCard({ article }: { article: NewsArticle }) {
   const title = shortTitle(article.title, article.summary, article.body)
+  const tag = dailyTag(article)
   const copy = useTranslatedCopy([
     { text: title, zh: title === article.title ? article.sourceZh?.title : undefined },
   ])
@@ -92,10 +174,11 @@ function NewsCard({ article }: { article: NewsArticle }) {
         <h2 className="mt-2 text-base font-medium leading-6">
           <Link href={`/news/${article.id}`} className="line-clamp-2 text-neutral-900">{copy.view(title)}</Link>
         </h2>
-        <p className="mt-3 flex flex-wrap gap-3 text-xs text-neutral-500">
+        <p className="mt-3 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
           <span>{article.analysis.eventType}</span>
           <Assets assets={article.analysis.relatedAssets} />
           <span>{article.analysis.sentiment}</span>
+          {tag ? <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5 text-neutral-700">{tag}</span> : null}
           <HeatTags tags={article.analysis.heatTags} />
         </p>
         <CopySwitch copy={copy} />

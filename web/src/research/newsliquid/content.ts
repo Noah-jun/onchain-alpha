@@ -1,4 +1,6 @@
-import type { DiscussionPost, DiscussionTopic, NewsArticle, ResearchNote, WhaleTransfer } from '@/domain/types'
+import { getCache } from '@vercel/functions'
+import type { DailyHotTweet, DailySection, DiscussionPost, DiscussionTopic, NewsArticle, ResearchNote, WhaleTransfer } from '@/domain/types'
+import { DAILY_SECTION_FALLBACK } from '@/domain/dailySections'
 import { needsTranslation } from '@/domain/translate'
 import { missingKey } from '@/research/env'
 import { liveProvenance } from '@/research/provenance'
@@ -16,10 +18,57 @@ export async function loadOpenNewsArticles(): Promise<NewsArticle[]> {
 
 export async function loadDailyHotArticles(): Promise<NewsArticle[]> {
   const { body } = await newsliquidRequest('/open/free_hot?category=web3', { auth: false })
-  const record = asRecord(body)
+  return parseDailyHot(body).items
+}
+
+export async function loadDailySections(): Promise<DailySection[]> {
+  const cached = await readTimed<DailySection[]>('daily-sections:v1')
+  if (cached?.length) return cached
+  try {
+    const { body } = await newsliquidRequest('/open/free_categories', { auth: false })
+    const parsed = parseDailySections(body)
+    if (!parsed?.length) return DAILY_SECTION_FALLBACK
+    await writeTimed('daily-sections:v1', parsed, 6 * 60 * 60)
+    return parsed
+  } catch {
+    return DAILY_SECTION_FALLBACK
+  }
+}
+
+export async function loadDailyHotBundle(subcategory: string): Promise<{ items: NewsArticle[]; tweets: DailyHotTweet[]; updatedAt: string | null }> {
+  const key = `daily-hot:v1:web3:${subcategory}`
+  const cached = await readTimed<{ items: NewsArticle[]; tweets: DailyHotTweet[]; updatedAt: string | null }>(key)
+  if (cached) return cached
+  const { body } = await newsliquidRequest(`/open/free_hot?category=web3&subcategory=${encodeURIComponent(subcategory)}`, { auth: false })
+  const parsed = parseDailyHot(body)
+  await writeTimed(key, parsed, 5 * 60)
+  return parsed
+}
+
+export function parseDailySections(body: unknown): DailySection[] | null {
+  const root = asRecord(unwrapData(body)) ?? asRecord(body)
+  const categories = asArray(root?.categories ?? unwrapData(body))
+  const web3 = categories.map(asRecord).find((row) => row?.key === 'web3')
+  const sections = asArray(web3?.subcategories).flatMap((item) => {
+    const row = asRecord(item)
+    const key = stringOf(row?.key)
+    if (!key) return []
+    const known = DAILY_SECTION_FALLBACK.find((section) => section.key === key)
+    const nameZh = stringOf(row?.name_zh) || stringOf(row?.name) || known?.nameZh || key
+    return [{ key, nameZh }]
+  })
+  return sections.length ? sections : null
+}
+
+export function parseDailyHot(body: unknown): { items: NewsArticle[]; tweets: DailyHotTweet[]; updatedAt: string | null } {
+  const record = asRecord(unwrapData(body)) ?? asRecord(body)
   const news = asRecord(record?.news)
-  const rows = asArray(news?.items)
-  return rows.map(mapDaily).filter((item): item is NewsArticle => item !== null)
+  const items = asArray(news?.items).map(mapDaily).filter((item): item is NewsArticle => item !== null)
+  const tweets = asArray(asRecord(record?.tweets)?.items ?? record?.tweets).flatMap((item, index) => {
+    const tweet = mapDailyTweet(item, index)
+    return tweet ? [tweet] : []
+  })
+  return { items, tweets, updatedAt: stringOf(news?.updated_at) }
 }
 
 export async function loadTweetById(twId: string): Promise<DiscussionTopic | null> {
@@ -146,6 +195,7 @@ function mapDaily(value: unknown): NewsArticle | null {
     score: numberOf(row.score),
     grade: stringOf(row.grade),
     heat: stringOf(row.engine_type) === 'meme' ? ['社交热度高'] : [],
+    markDaily: true,
   })
 }
 
@@ -166,6 +216,7 @@ function article(input: {
   grade: string | null
   heat: Array<'社交热度高' | '基本面有支撑'>
   sourceZh?: NewsArticle['sourceZh']
+  markDaily?: boolean
 }): NewsArticle {
   const sentiment = input.signal === 'long' ? '偏多' : input.signal === 'short' ? '偏空' : input.signal === 'neutral' ? '中性' : '未知'
   const confidence = input.score == null ? '低' : input.score >= 80 ? '高' : input.score >= 60 ? '中' : '低'
@@ -197,6 +248,59 @@ function article(input: {
     analysis,
     provenance: liveProvenance(input.source, input.publishedAt, 'NewsLiquid 返回的原文和评分', input.sourceUrl),
     sourceZh: input.sourceZh,
+    ...(input.markDaily && (input.grade || input.score != null) ? { daily: { grade: input.grade, score: input.score } } : {}),
+  }
+}
+
+function mapDailyTweet(value: unknown, index: number): DailyHotTweet | null {
+  const row = asRecord(value)
+  if (!row) return null
+  const text = stringOf(row.content) || stringOf(row.text) || stringOf(row.full_text)
+  if (!text) return null
+  const user = asRecord(row.user) || asRecord(row.author)
+  const handle = cleanHandle(stringOf(row.handle) || stringOf(row.username) || stringOf(user?.screen_name) || stringOf(user?.username))
+  const authorName = stringOf(row.author_name) || (typeof row.author === 'string' ? stringOf(row.author) : null)
+  const author = authorName || handle || '未知账号'
+  const id = stringOf(row.id) || stringOf(row.tweet_id) || stringOf(row.twId) || `${index}`
+  return { id, author, text, url: tweetUrl(stringOf(row.url) || stringOf(row.link), id, handle) }
+}
+
+function cleanHandle(value: string | null): string | null {
+  if (!value) return null
+  const handle = value.replace(/^@/, '')
+  return /^[A-Za-z0-9_]{1,15}$/.test(handle) ? handle : null
+}
+
+function tweetUrl(raw: string | null, id: string, handle: string | null): string | null {
+  if (raw && /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\//i.test(raw)) return raw.split('#')[0]
+  if (/^\d{6,}$/.test(id)) return handle ? `https://x.com/${handle}/status/${id}` : `https://x.com/i/web/status/${id}`
+  if (handle) return `https://x.com/${handle}`
+  return null
+}
+
+const timedMemory = new Map<string, { exp: number; value: unknown }>()
+
+async function readTimed<T>(key: string): Promise<T | null> {
+  const local = timedMemory.get(key)
+  if (local && local.exp > Date.now()) return local.value as T
+  try {
+    const stored = await getCache({ namespace: 'research-daily' }).get(key)
+    if (stored) {
+      timedMemory.set(key, { exp: Date.now() + 60_000, value: stored })
+      return stored as T
+    }
+  } catch {
+    return local && local.exp > Date.now() ? local.value as T : null
+  }
+  return null
+}
+
+async function writeTimed(key: string, value: unknown, ttlSeconds: number) {
+  timedMemory.set(key, { exp: Date.now() + ttlSeconds * 1000, value })
+  try {
+    await getCache({ namespace: 'research-daily' }).set(key, value, { ttl: ttlSeconds, tags: ['research-daily'], name: key.slice(0, 80) })
+  } catch {
+    // Runtime Cache is unavailable outside Vercel. This process still keeps the memory copy.
   }
 }
 

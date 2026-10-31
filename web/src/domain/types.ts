@@ -68,6 +68,20 @@ export interface NewsArticle {
   provenance: Provenance
   /** Chinese text already returned by NewsLiquid for the same field. */
   sourceZh?: Partial<Record<'title' | 'summary' | 'body', string>>
+  /** Grade and score from 6551 daily-news, present only when that API returned them. */
+  daily?: { grade: string | null; score: number | null }
+}
+
+export interface DailySection {
+  key: string
+  nameZh: string
+}
+
+export interface DailyHotTweet {
+  id: string
+  author: string
+  text: string
+  url: string | null
 }
 
 export interface DiscussionPost {

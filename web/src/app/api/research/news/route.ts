@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getNews } from '@/research/service'
+import { getNewsPage, getNewsSection } from '@/research/service'
 import { withClientKeys } from '@/research/requestSecrets'
 
 export const dynamic = 'force-dynamic'
@@ -7,6 +7,8 @@ export const preferredRegion = 'hkg1'
 
 export async function GET(request: Request) {
   return withClientKeys(request, async () => {
-  return NextResponse.json(await getNews())
-})
+    const subcategory = new URL(request.url).searchParams.get('subcategory')?.trim() || ''
+    if (subcategory) return NextResponse.json(await getNewsSection(subcategory))
+    return NextResponse.json(await getNewsPage())
+  })
 }

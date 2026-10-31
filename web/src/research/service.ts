@@ -16,11 +16,12 @@ import { assertVolatilityRules } from '@/domain/volatility'
 import { answerQuestion, type GroundingBundle } from '@/research/adapters/ai'
 import { loadFunding } from '@/research/adapters/funding'
 import { loadQuotes } from '@/research/adapters/market'
-import { loadNews, loadNewsItem } from '@/research/adapters/news'
+import { loadNews, loadNewsItem, loadNewsSection } from '@/research/adapters/news'
 import { loadFlow, loadFlows } from '@/research/adapters/onchain'
 import { loadTopic, loadTopics } from '@/research/adapters/social'
 import { loadVolatility } from '@/research/adapters/volatility'
 import { normalizeSymbol } from '@/research/env'
+import { loadDailySections } from '@/research/newsliquid/content'
 
 import { listSources } from '@/research/sources'
 
@@ -80,6 +81,15 @@ export async function getQuote(symbol: string): Promise<Quote | null> {
 export async function getNews() {
   const loaded = await loadNews()
   return { items: loaded.items, provenance: loaded.provenance, error: loaded.error }
+}
+
+export async function getNewsPage() {
+  const [news, sections] = await Promise.all([getNews(), loadDailySections()])
+  return { ...news, sections, tweets: [] }
+}
+
+export async function getNewsSection(subcategory: string) {
+  return loadNewsSection(subcategory)
 }
 
 export async function getNewsById(id: string) {

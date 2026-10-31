@@ -1,9 +1,9 @@
-import type { NewsArticle, Provenance, ResearchNote } from '@/domain/types'
+import type { DailyHotTweet, DailySection, NewsArticle, Provenance, ResearchNote } from '@/domain/types'
 import { DEMO_NEWS } from '@/research/demo/catalog'
 import { contentFingerprint, canonicalUrl, dedupeByFingerprint } from '@/research/dedupe'
 import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
-import { loadDailyHotArticles, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
+import { loadDailyHotArticles, loadDailyHotBundle, loadDailySections, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 import { recallItem, rememberItems } from '@/research/seenCache'
 
@@ -53,10 +53,7 @@ async function collectNews(): Promise<{ items: NewsArticle[]; provenance: Proven
       error: reason,
     }
   }
-  const unique = dedupeByFingerprint(items, {
-    fingerprint: (item) => [canonicalUrl(item.url) || '', contentFingerprint(item.title, `${item.summary} ${item.body}`)],
-    rank: (item) => (item.analysis.confidence === '高' ? 3 : item.analysis.confidence === '中' ? 2 : 1) * 1_000_000_000_000 + new Date(item.publishedAt).getTime(),
-  })
+  const unique = dedupeNews(items)
   return {
     items: unique,
     provenance: liveProvenance(
@@ -93,11 +90,64 @@ async function loadCryptoPanic(): Promise<{ items: NewsArticle[]; provenance: Pr
   }
 }
 
+export async function loadNewsSection(subcategory: string): Promise<{ items: NewsArticle[]; tweets: DailyHotTweet[]; sections: DailySection[]; provenance: Provenance; error: string | null }> {
+  const sections = await loadDailySections()
+  const match = /^[a-z0-9_]+$/.test(subcategory) ? sections.find((item) => item.key === subcategory) : undefined
+  if (!match) {
+    return {
+      items: [],
+      tweets: [],
+      sections,
+      provenance: failedLiveProvenance('6551 daily-news', '未知日报板块', 'https://ai.6551.io/open/free_hot'),
+      error: '未知日报板块',
+    }
+  }
+  try {
+    const bundle = await loadDailyHotBundle(subcategory)
+    const items = dedupeNews(bundle.items)
+    if (items.length) await rememberItems('news', items)
+    return {
+      items,
+      tweets: bundle.tweets,
+      sections,
+      provenance: liveProvenance('6551 daily-news', bundle.updatedAt, `${match.nameZh}。GET /open/free_hot?category=web3&subcategory=${subcategory}`, 'https://ai.6551.io/open/free_hot'),
+      error: null,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '请求失败'
+    return {
+      items: [],
+      tweets: [],
+      sections,
+      provenance: failedLiveProvenance('6551 daily-news', `每日热点失败：${message}`, 'https://ai.6551.io/open/free_hot'),
+      error: `每日热点失败：${message}`,
+    }
+  }
+}
+
 export async function loadNewsItem(id: string): Promise<NewsArticle | null> {
   const cached = await recallItem<NewsArticle>('news', id)
   if (cached) return cached
   const list = await loadNews()
-  return list.items.find((item) => item.id === id) ?? null
+  const found = list.items.find((item) => item.id === id)
+  if (found) return found
+  if (!id.startsWith('daily-')) return null
+  const sections = await loadDailySections()
+  const bundles = await Promise.all(sections.map((section) => loadDailyHotBundle(section.key).catch(() => null)))
+  for (const bundle of bundles) {
+    const item = bundle?.items.find((article) => article.id === id)
+    if (!item) continue
+    await rememberItems('news', [item])
+    return item
+  }
+  return null
+}
+
+function dedupeNews(items: NewsArticle[]): NewsArticle[] {
+  return dedupeByFingerprint(items, {
+    fingerprint: (item) => [canonicalUrl(item.url) || '', contentFingerprint(item.title, `${item.summary} ${item.body}`)],
+    rank: (item) => (item.analysis.confidence === '高' ? 3 : item.analysis.confidence === '中' ? 2 : 1) * 1_000_000_000_000 + new Date(item.publishedAt).getTime(),
+  })
 }
 
 interface CryptoPanicPost {

@@ -17,6 +17,9 @@ interface NewsResponse {
   error: string | null
   sections?: DailySection[]
   tweets?: DailyHotTweet[]
+  listingExchanges?: string[]
+  listingConfigured?: boolean
+  listingError?: string | null
 }
 
 export default function NewsPage() {
@@ -27,10 +30,13 @@ export default function NewsPage() {
   const [sectionError, setSectionError] = useState('')
   const [sectionRetry, setSectionRetry] = useState(0)
   const [eventType, setEventType] = useState('全部')
+  const [exchange, setExchange] = useState('全部')
+  const [listingAction, setListingAction] = useState('全部')
   const [sentiment, setSentiment] = useState('全部')
   const [heat, setHeat] = useState('全部')
   const [query, setQuery] = useState('')
-  const showingSection = section !== '全部'
+  const listingMode = eventType === '上新/下架'
+  const showingSection = section !== '全部' && !listingMode
   const items = showingSection ? (sectionData?.items ?? []) : (data?.items ?? [])
   const sections = data?.sections?.length ? data.sections : (sectionData?.sections?.length ? sectionData.sections : DAILY_SECTION_FALLBACK)
   useEffect(() => {
@@ -59,10 +65,14 @@ export default function NewsPage() {
       })
     return () => controller.abort()
   }, [section, sectionRetry])
-  const eventTypes = useMemo(() => withCurrent(['全部', ...new Set(items.map((item) => item.analysis.eventType))], eventType), [items, eventType])
+  const eventTypes = useMemo(() => withCurrent(['全部', ...new Set(items.map((item) => item.analysis.eventType))], eventType).filter((item) => item !== '上新/下架'), [items, eventType])
   const sentiments = useMemo(() => withCurrent(['全部', ...new Set(items.map((item) => item.analysis.sentiment))], sentiment), [items, sentiment])
   const filtered = items.filter((item) => {
-    if (eventType !== '全部' && item.analysis.eventType !== eventType) return false
+    if (listingMode) {
+      if (!item.listing) return false
+      if (exchange !== '全部' && item.listing.exchange !== exchange) return false
+      if (listingAction !== '全部' && item.listing.action !== listingAction) return false
+    } else if (eventType !== '全部' && item.analysis.eventType !== eventType) return false
     if (sentiment !== '全部' && item.analysis.sentiment !== sentiment) return false
     if (heat === '社交热度高' && !item.analysis.heatTags.includes('社交热度高')) return false
     if (heat === '基本面有支撑' && !item.analysis.heatTags.includes('基本面有支撑')) return false
@@ -71,6 +81,7 @@ export default function NewsPage() {
     if (query && !blob.includes(query.trim().toLowerCase())) return false
     return true
   })
+  if (listingMode) filtered.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
   const view = showingSection ? sectionData : data
   const tweets = showingSection ? (sectionData?.tweets ?? []) : []
 
@@ -93,15 +104,37 @@ export default function NewsPage() {
             <div>
               <p className="mb-2 text-xs text-neutral-500">日报板块</p>
               <div className="flex flex-wrap gap-2">
-                <FilterButton pressed={section === '全部'} onClick={() => setSection('全部')}>全部</FilterButton>
+                <FilterButton pressed={section === '全部'} onClick={() => { setSection('全部'); if (listingMode) setEventType('全部') }}>全部</FilterButton>
                 {sections.map((item) => (
-                  <FilterButton key={item.key} pressed={section === item.key} onClick={() => setSection(item.key)}>{item.nameZh}</FilterButton>
+                  <FilterButton key={item.key} pressed={section === item.key} onClick={() => { setSection(item.key); if (listingMode) setEventType('全部') }}>{item.nameZh}</FilterButton>
                 ))}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {eventTypes.map((item) => <FilterButton key={item} pressed={eventType === item} onClick={() => setEventType(item)}>{item}</FilterButton>)}
+              <FilterButton pressed={listingMode} onClick={() => { setEventType('上新/下架'); setSection('全部') }}>上新/下架</FilterButton>
             </div>
+            {listingMode && data.listingConfigured ? (
+              <>
+                <div>
+                  <p className="mb-2 text-xs text-neutral-500">交易所</p>
+                  <div className="flex flex-wrap gap-2">
+                    <FilterButton pressed={exchange === '全部'} onClick={() => setExchange('全部')}>全部</FilterButton>
+                    {(data.listingExchanges ?? []).map((item) => (
+                      <FilterButton key={item} pressed={exchange === item} onClick={() => setExchange(item)}>{item}</FilterButton>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs text-neutral-500">上新/下架</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['全部', '上新', '下架'].map((item) => (
+                      <FilterButton key={item} pressed={listingAction === item} onClick={() => setListingAction(item)}>{item}</FilterButton>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               {sentiments.map((item) => <FilterButton key={item} pressed={sentiment === item} onClick={() => setSentiment(item)}>{item}</FilterButton>)}
             </div>
@@ -113,7 +146,7 @@ export default function NewsPage() {
           </div>
           {showingSection && sectionLoading ? <LoadingBlock /> : null}
           {showingSection && sectionError && !sectionData ? <ErrorBlock message={sectionError} onRetry={() => setSectionRetry((value) => value + 1)} /> : null}
-          {!showingSection || sectionData ? (
+          {listingMode && data.listingConfigured === false ? <EmptyBlock title="未配置" detail={data.listingError || '未配置。请在设置页保存 NEWSLIQUID_API_TOKEN，或在服务端环境变量中设置。'} /> : !showingSection || sectionData ? (
             filtered.length ? (
               <ul className="space-y-3">
                 {filtered.map((article) => <NewsCard key={article.id} article={article} />)}
@@ -178,6 +211,9 @@ function NewsCard({ article }: { article: NewsArticle }) {
           <span>{article.analysis.eventType}</span>
           <Assets assets={article.analysis.relatedAssets} />
           <span>{article.analysis.sentiment}</span>
+          {article.listing ? <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5 text-neutral-700">{article.listing.exchange}</span> : null}
+          {article.listing ? <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5 text-neutral-700">{article.listing.action}</span> : null}
+          {article.listing && article.url ? <a className="underline" href={article.url} target="_blank" rel="noreferrer">原文</a> : null}
           {tag ? <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5 text-neutral-700">{tag}</span> : null}
           <HeatTags tags={article.analysis.heatTags} />
         </p>

@@ -21,7 +21,7 @@ import { loadFlow, loadFlows } from '@/research/adapters/onchain'
 import { loadTopic, loadTopics } from '@/research/adapters/social'
 import { loadVolatility } from '@/research/adapters/volatility'
 import { normalizeSymbol } from '@/research/env'
-import { loadDailySections } from '@/research/newsliquid/content'
+import { loadDailySections, loadListingBundle } from '@/research/newsliquid/content'
 
 import { listSources } from '@/research/sources'
 
@@ -85,7 +85,15 @@ export async function getNews() {
 
 export async function getNewsPage() {
   const [news, sections] = await Promise.all([getNews(), loadDailySections()])
-  return { ...news, sections, tweets: [] }
+  const listing = await loadListingBundle()
+  return {
+    ...news,
+    sections,
+    tweets: [],
+    listingExchanges: listing.exchanges,
+    listingConfigured: listing.configured,
+    listingError: listing.error,
+  }
 }
 
 export async function getNewsSection(subcategory: string) {

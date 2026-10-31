@@ -70,6 +70,8 @@ export interface NewsArticle {
   sourceZh?: Partial<Record<'title' | 'summary' | 'body', string>>
   /** Grade and score from 6551 daily-news, present only when that API returned them. */
   daily?: { grade: string | null; score: number | null }
+  /** Exchange listing or delisting announcement from the OpenNews listing engine. */
+  listing?: { exchange: string; action: '上新' | '下架' | '未分类' }
 }
 
 export interface DailySection {

@@ -3,7 +3,7 @@ import { DEMO_NEWS } from '@/research/demo/catalog'
 import { contentFingerprint, canonicalUrl, dedupeByFingerprint } from '@/research/dedupe'
 import { demoAllowed, envSet, missingKey, secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
-import { loadDailyHotArticles, loadDailyHotBundle, loadDailySections, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
+import { loadDailyHotArticles, loadDailyHotBundle, loadDailySections, loadListingBundle, loadOpenNewsArticles, newsliquidConfigured, newsliquidMissing } from '@/research/newsliquid/content'
 import { demoProvenance, failedLiveProvenance, liveProvenance, unconfiguredProvenance } from '@/research/provenance'
 import { recallItem, rememberItems } from '@/research/seenCache'
 
@@ -26,6 +26,11 @@ async function collectNews(): Promise<{ items: NewsArticle[]; provenance: Proven
       items.push(...await loadOpenNewsArticles())
     } catch (error) {
       problems.push(`OpenNews 失败：${error instanceof Error ? error.message : '请求失败'}`)
+    }
+    try {
+      items.push(...(await loadListingBundle()).items)
+    } catch (error) {
+      problems.push(`上新/下架失败：${error instanceof Error ? error.message : '请求失败'}`)
     }
   }
   try {
@@ -53,7 +58,7 @@ async function collectNews(): Promise<{ items: NewsArticle[]; provenance: Proven
       error: reason,
     }
   }
-  const unique = dedupeNews(items)
+  const unique = dedupeNews(withListingTags(items))
   return {
     items: unique,
     provenance: liveProvenance(
@@ -141,6 +146,21 @@ export async function loadNewsItem(id: string): Promise<NewsArticle | null> {
     return item
   }
   return null
+}
+
+function withListingTags(items: NewsArticle[]): NewsArticle[] {
+  const byUrl = new Map<string, NonNullable<NewsArticle['listing']>>()
+  for (const item of items) {
+    const url = canonicalUrl(item.url)
+    if (item.listing && url) byUrl.set(url, item.listing)
+  }
+  return items.map((item) => {
+    if (item.listing) return item
+    const url = canonicalUrl(item.url)
+    const listing = url ? byUrl.get(url) : undefined
+    if (!listing) return item
+    return { ...item, listing, analysis: { ...item.analysis, eventType: '上新/下架' } }
+  })
 }
 
 function dedupeNews(items: NewsArticle[]): NewsArticle[] {

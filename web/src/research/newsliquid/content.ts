@@ -1,10 +1,52 @@
+import { createHash } from 'crypto'
 import { getCache } from '@vercel/functions'
 import type { DailyHotTweet, DailySection, DiscussionPost, DiscussionTopic, NewsArticle, ResearchNote, WhaleTransfer } from '@/domain/types'
 import { DAILY_SECTION_FALLBACK } from '@/domain/dailySections'
+import { LISTING_EXCHANGE_FALLBACK, classifyListing, parseListingTypes } from '@/domain/listingNews'
 import { needsTranslation } from '@/domain/translate'
 import { missingKey } from '@/research/env'
 import { liveProvenance } from '@/research/provenance'
 import { asArray, asRecord, newsliquidRequest, newsliquidToken, unwrapData } from '@/research/newsliquid/client'
+
+export interface ListingBundle {
+  items: NewsArticle[]
+  exchanges: string[]
+  configured: boolean
+  error: string | null
+}
+
+export async function loadListingBundle(): Promise<ListingBundle> {
+  if (!newsliquidToken()) {
+    return { items: [], exchanges: LISTING_EXCHANGE_FALLBACK, configured: false, error: newsliquidMissing() }
+  }
+  const stamp = createHash('sha256').update(newsliquidToken() || '').digest('hex').slice(0, 10)
+  const key = `listing-feed:v1:${stamp}`
+  const cached = await readTimed<ListingBundle>(key)
+  if (cached) return cached
+  const types = await loadListingTypes()
+  const { body } = await newsliquidRequest('/open/news_search', {
+    method: 'POST',
+    body: { engineTypes: { listing: [] }, limit: 100, page: 1 },
+  })
+  const items = asArray(unwrapData(body))
+    .map((row) => mapListing(row, types.delistCodes))
+    .filter((item): item is NewsArticle => item !== null)
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+  const bundle: ListingBundle = { items, exchanges: types.exchanges, configured: true, error: null }
+  await writeTimed(key, bundle, 2 * 60)
+  return bundle
+}
+
+async function loadListingTypes(): Promise<{ exchanges: string[]; delistCodes: string[] }> {
+  try {
+    const { body } = await newsliquidRequest('/open/news_type')
+    const parsed = parseListingTypes(body)
+    if (parsed?.exchanges.length) return parsed
+  } catch {
+    // news_type is optional. The listing search still asks for every listing source.
+  }
+  return { exchanges: LISTING_EXCHANGE_FALLBACK, delistCodes: [] }
+}
 
 export async function loadOpenNewsArticles(): Promise<NewsArticle[]> {
   const { body } = await newsliquidRequest('/open/news_search', {
@@ -168,6 +210,32 @@ function mapOpenNews(value: unknown): NewsArticle | null {
     grade: stringOf(rating?.grade),
     heat: stringOf(row.engineType) === 'meme' ? ['社交热度高'] : [],
   })
+}
+
+function mapListing(value: unknown, delistCodes: string[]): NewsArticle | null {
+  const row = asRecord(value)
+  if (!row) return null
+  const engine = stringOf(row.engineType)
+  if (engine && engine !== 'listing') return null
+  const base = mapOpenNews(row)
+  if (!base) return null
+  const exchange = stringOf(row.newsType) || '未知交易所'
+  const rating = asRecord(row.aiRating)
+  const action = classifyListing([base.title, base.summary, base.body, stringOf(rating?.summary), stringOf(rating?.enSummary)].filter(Boolean).join('\n'), exchange, delistCodes)
+  return {
+    ...base,
+    publishedAt: timeOf(row.ts) || base.publishedAt,
+    publisher: exchange,
+    analysis: { ...base.analysis, eventType: '上新/下架' },
+    listing: { exchange, action },
+  }
+}
+
+function timeOf(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return millisToIso(value)
+  const text = stringOf(value)
+  if (text && /^\d{10,13}$/.test(text)) return millisToIso(Number(text))
+  return text
 }
 
 function mapDaily(value: unknown): NewsArticle | null {

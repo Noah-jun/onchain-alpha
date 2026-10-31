@@ -1,6 +1,7 @@
 /** Shared, side-effect-free helpers for deciding what to translate and what to leave untouched. */
 
-const PROTECT = /https?:\/\/[^\s<>]+|www\.[^\s<>]+|\$[A-Za-z][A-Za-z0-9]{1,15}|@[A-Za-z0-9_]{1,30}|\$?\d[\d,]*(?:\.\d+)?%?/g
+const PROTECT = /https?:\/\/[^\s<>]+|www\.[^\s<>]+|\$[A-Za-z][A-Za-z0-9]{1,15}|@[A-Za-z0-9_]{1,30}/g
+const MAGNITUDE = /\$?\d[\d,]*(?:\.\d+)?\s*(?:trillion|billion|million|thousand|bn|mn|[kmb])\b/gi
 const NAMED_ENTITIES: Record<string, string> = {
   amp: '&',
   lt: '<',
@@ -76,6 +77,14 @@ export function restoreText(translated: string, tokens: string[]): { text: strin
   return { text, error: null }
 }
 
+/** True when a source amount with a magnitude word is missing its converted value. */
+export function magnitudeMismatch(source: string, translated: string): boolean {
+  const amounts = decodeHtmlEntities(source).match(MAGNITUDE) ?? []
+  if (!amounts.length) return false
+  const normalized = normalizeDigits(translated).replace(/[,，\s]/g, '')
+  return amounts.some((amount) => !acceptedForms(amount).some((form) => normalized.includes(form.replace(/[,，\s]/g, ''))))
+}
+
 export function describeTranslateError(provider: 'DeepL' | 'AI', error: unknown): string {
   const name = error instanceof Error ? error.name : ''
   const message = error instanceof Error ? error.message : ''
@@ -87,6 +96,36 @@ export function describeTranslateError(provider: 'DeepL' | 'AI', error: unknown)
   if (/占位符不匹配/.test(blob)) return '占位符不匹配'
   const detail = message.replace(/\s+/g, ' ').trim().slice(0, 120)
   return detail ? `${provider} 翻译失败：${detail}` : `${provider} 翻译失败`
+}
+
+function acceptedForms(amount: string): string[] {
+  const match = amount.match(/\$?(\d[\d,]*(?:\.\d+)?)\s*(trillion|billion|million|thousand|bn|mn|[kmb])/i)
+  if (!match) return []
+  const value = Number(match[1].replace(/,/g, '')) * magnitudeFactor(match[2])
+  if (!Number.isFinite(value)) return []
+  const forms = new Set<string>([trimNumber(value)])
+  if (value >= 1e12) forms.add(`${trimNumber(value / 1e12)}万亿`)
+  if (value >= 1e8) forms.add(`${trimNumber(value / 1e8)}亿`)
+  if (value >= 1e4) forms.add(`${trimNumber(value / 1e4)}万`)
+  if (value >= 1e6 && value < 1e8) forms.add(`${trimNumber(value / 1e6)}百万`)
+  return [...forms]
+}
+
+function magnitudeFactor(unit: string): number {
+  const name = unit.toLowerCase()
+  if (name === 'trillion') return 1e12
+  if (name === 'billion' || name === 'bn' || name === 'b') return 1e9
+  if (name === 'million' || name === 'mn' || name === 'm') return 1e6
+  return 1e3
+}
+
+function trimNumber(value: number): string {
+  const rounded = Math.round(value * 1e6) / 1e6
+  return String(rounded)
+}
+
+function normalizeDigits(text: string): string {
+  return text.replace(/[０-９]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 0xFF10 + 0x30))
 }
 
 function escapeXml(text: string): string {

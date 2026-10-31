@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import { decodeHtmlEntities, describeTranslateError, needsTranslation, protectText, restoreText, toDeeplXml } from '@/domain/translate'
+import { decodeHtmlEntities, describeTranslateError, magnitudeMismatch, needsTranslation, protectText, restoreText, toDeeplXml } from '@/domain/translate'
 import { secretValue } from '@/research/env'
 import { fetchJson } from '@/research/http'
 
@@ -22,6 +22,7 @@ export interface TranslationBatch {
   items: TranslationItem[]
 }
 
+const CACHE_VERSION = 'v2'
 const CACHE_TTL = 6 * 60 * 60 * 1000
 const cache = new Map<string, { exp: number; item: TranslationItem }>()
 
@@ -110,7 +111,7 @@ function unconfiguredItem(text: string): TranslationItem {
 }
 
 function hashText(text: string): string {
-  return createHash('sha256').update(text).digest('hex')
+  return createHash('sha256').update(`${CACHE_VERSION}\n${text}`).digest('hex')
 }
 
 async function runAi(texts: string[], reasons: Map<string, string>): Promise<Map<string, string>> {
@@ -134,6 +135,10 @@ async function translateChunk(texts: string[], provider: 'ai' | 'deepl', out: Ma
         return
       }
       const restored = restoreText(value, item.tokens)
+      if (restored.text && magnitudeMismatch(item.text, restored.text)) {
+        reasons.set(item.text, '数字换算可能有误')
+        return
+      }
       if (restored.text) out.set(item.text, restored.text)
       else retry.push(item.text)
     })
@@ -169,7 +174,7 @@ async function aiRequest(payloads: string[]): Promise<(string | null)[]> {
       messages: [
         {
           role: 'system',
-          content: '把用户给出的 JSON 字符串数组翻译成简体中文。只返回 JSON：{"translations":["..."]}，条数和顺序必须与输入一致。保留 ⟦数字⟧ 占位符和 <x> 标签，不要翻译、改写或删除它们。不要添加解释。',
+          content: '把用户给出的 JSON 字符串数组翻译成简体中文。只返回 JSON：{"translations":["..."]}，条数和顺序必须与输入一致。保留 ⟦数字⟧ 占位符和 <x> 标签，不要翻译、改写或删除它们。不要添加解释。英文数量级要换算正确：million=百万，billion=十亿，即 N billion = N×10亿；thousand/k=千，trillion=万亿。不要改动数字本身。',
         },
         { role: 'user', content: JSON.stringify(payloads) },
       ],

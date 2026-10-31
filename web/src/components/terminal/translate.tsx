@@ -5,7 +5,7 @@ import { decodeHtmlEntities, needsTranslation } from '@/domain/translate'
 import { researchHeaders } from '@/components/terminal/settings'
 
 const STORAGE_KEY = 'onchain-alpha.research.translate.v1'
-const CACHE_KEY = 'onchain-alpha.research.translate.cache.v1'
+const CACHE_KEY = 'onchain-alpha.research.translate.cache.v2'
 export const UNCONFIGURED_TRANSLATION = '未配置翻译，请在设置页填写 AI 或翻译 key'
 
 interface Hit {

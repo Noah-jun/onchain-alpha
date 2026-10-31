@@ -83,6 +83,31 @@ export function writeKeys(keys: Partial<Record<KeyName, string>>) {
   window.localStorage.setItem(KEY_STORAGE, JSON.stringify(stored))
 }
 
+export const AGENT_STORAGE = 'onchain-alpha.research.agents.v1'
+
+export interface AgentDraft {
+  prompt: string
+  model: string
+}
+
+export function readAgents(): { topic: AgentDraft; news: AgentDraft } {
+  const fallback = { prompt: '', model: '' }
+  if (typeof window === 'undefined') return { topic: fallback, news: fallback }
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(AGENT_STORAGE) || '{}') as { topic?: Partial<AgentDraft>; news?: Partial<AgentDraft> }
+    return {
+      topic: { prompt: typeof parsed.topic?.prompt === 'string' ? parsed.topic.prompt : '', model: typeof parsed.topic?.model === 'string' ? parsed.topic.model : '' },
+      news: { prompt: typeof parsed.news?.prompt === 'string' ? parsed.news.prompt : '', model: typeof parsed.news?.model === 'string' ? parsed.news.model : '' },
+    }
+  } catch {
+    return { topic: fallback, news: fallback }
+  }
+}
+
+export function writeAgents(value: { topic: AgentDraft; news: AgentDraft }) {
+  window.localStorage.setItem(AGENT_STORAGE, JSON.stringify(value))
+}
+
 export function researchHeaders(): Record<string, string> {
   const keys = readKeys()
   const headers: Record<string, string> = {}

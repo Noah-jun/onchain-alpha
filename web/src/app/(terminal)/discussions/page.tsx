@@ -1,10 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { researchHeaders } from '@/components/terminal/settings'
 import { DataNotice, EmptyBlock, ErrorBlock, FilterButton, LoadingBlock, PageIntro } from '@/components/terminal/ui'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
+import { AgentReadingPanel } from '@/components/terminal/AgentReading'
+import { topicSampleSignature } from '@/domain/agentPrompt'
 import type { TopicBoard, TopicCard, TopicKind } from '@/research/topicBoard'
 
 const FILTERS: Array<'全部' | TopicKind> = ['全部', '事件', 'Meme', '项目', '新东西']
@@ -74,7 +75,7 @@ export default function DiscussionsPage() {
                   </li>
                 ))}
               </ul>
-              {selected ? <Reading key={selected.id} topic={selected} aiStatus={board.aiStatus} aiError={board.aiError} /> : null}
+              {selected ? <Reading key={selected.id} topic={selected} /> : null}
             </div>
           ) : <EmptyBlock title={filter === '全部' ? (board.emptyReason || '当前没有足够证据支持的热点') : '这个标签下没有话题'} detail={filter === '全部' ? board.provenance.note : '其他标签里可能还有话题。'} />}
         </>
@@ -110,12 +111,11 @@ function TopicRow({ topic, selected, onSelect }: { topic: TopicCard; selected: b
   )
 }
 
-function Reading({ topic, aiStatus, aiError }: { topic: TopicCard; aiStatus: TopicBoard['aiStatus']; aiError: string | null }) {
+function Reading({ topic }: { topic: TopicCard }) {
   const copy = useTranslatedCopy([
     { text: topic.title },
     { text: topic.summary },
     ...topic.posts.slice(0, 4).map((post) => ({ text: post.text })),
-    ...topic.interpretation.community.map((text) => ({ text })),
   ])
   const view = (text: string) => copy.view(text)
   const ai = topic.interpretation
@@ -123,18 +123,10 @@ function Reading({ topic, aiStatus, aiError }: { topic: TopicCard; aiStatus: Top
     <aside className="rounded-lg border border-[#e7e7e4] bg-white p-4 lg:sticky lg:top-4">
       <p className="text-xs text-neutral-500">{topic.kind} · {topic.credibility}</p>
       <h2 className="mt-1 text-lg font-medium">{view(topic.title)}</h2>
-      {aiStatus === 'unconfigured' ? <p className="mt-2 text-sm">未配置 AI Key，请到<Link className="underline" href="/settings">设置页</Link>配置</p> : null}
-      {aiStatus === 'error' ? <p className="mt-2 text-sm text-red-700">AI 解读失败：{aiError || '未知错误'}</p> : null}
       <CopySwitch copy={copy} />
+      <AgentReadingPanel agent="话题解读 Agent" endpoint="/api/research/discussions/interpret" scope="topic" id={topic.id} sample={topicSampleSignature(topic)} />
       {topic.newReason ? <p className="mt-3 text-xs leading-5 text-neutral-600">新的依据：{topic.newReason}</p> : null}
       {topic.contractNote ? <p className="mt-2 text-xs leading-5 text-neutral-600">合约：{topic.contractStatus}。{topic.contractNote}</p> : null}
-      <Block title="已核实事实" items={ai.facts} empty="暂无已核实事实" />
-      <Block title="社区主要观点" items={ai.community.map(view)} empty={aiStatus === 'ok' ? '样本里没有可引用的帖文' : ''} />
-      <Block title="话题升温原因" items={ai.whyHot} empty={aiStatus === 'ok' ? '模型没有给出升温原因' : ''} />
-      <Block title="可能影响" items={ai.impact} empty={aiStatus === 'ok' ? '模型没有给出影响' : ''} />
-      <Block title="尚未确认的信息" items={ai.unconfirmed} empty={aiStatus === 'ok' ? '没有单独列出的缺口' : ''} />
-      <Block title="后续观察点" items={ai.watch} empty={aiStatus === 'ok' ? '模型没有给出观察点' : ''} />
-      <Block title="AI 推断" items={ai.inferences} empty={aiStatus === 'ok' ? '没有单独的推断' : ''} />
       <Block title="营销或异常传播迹象" items={ai.marketing} empty="样本里没有触发刷量或重复营销规则。" />
       <div className="mt-4">
         <h3 className="text-xs text-neutral-500">来源链接</h3>

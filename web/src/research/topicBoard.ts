@@ -120,8 +120,7 @@ async function computeBoard(): Promise<TopicBoard> {
   }
   const clusters = rank(cluster(loaded.posts))
   const verified = await verifyAll(clusters.slice(0, 8))
-  const interpreted = await interpret(verified)
-  const items = interpreted.cards.sort((a, b) => b.heat - a.heat)
+  const items = verified.sort((a, b) => b.heat - a.heat)
   const note = [
     span,
     `来源 ${loaded.sources.join(' / ')}。${loaded.queryNote}`,
@@ -134,8 +133,8 @@ async function computeBoard(): Promise<TopicBoard> {
     error: loaded.errors.join('；') || null,
     emptyReason: items.length ? null : '当前没有足够证据支持的热点',
     windowHours: 24,
-    aiStatus: interpreted.status,
-    aiError: interpreted.error,
+    aiStatus: aiIdle().aiStatus,
+    aiError: null,
   }
 }
 
@@ -621,24 +620,6 @@ async function newsCheck(ticker: string | null, address: string | null, fullName
   }
 }
 
-async function interpret(cards: TopicCard[]): Promise<{ cards: TopicCard[]; status: TopicBoard['aiStatus']; error: string | null }> {
-  if (!envSet('AI_API_KEY')) return { cards, status: 'unconfigured', error: null }
-  if (!cards.length) return { cards, status: 'ok', error: null }
-  const batches: TopicCard[][] = []
-  for (let index = 0; index < cards.length; index += 3) batches.push(cards.slice(index, index + 3))
-  const results = await Promise.all(batches.map((batch) => askBatch(batch)))
-  const byId = new Map<string, Partial<AiShape>>()
-  const errors: string[] = []
-  for (const result of results) {
-    for (const [id, row] of result.rows) byId.set(id, row)
-    if (result.error) errors.push(result.error)
-  }
-  const merged = cards.map((card) => mergeAi(card, byId.get(card.id)))
-  const any = merged.some((card) => card.interpretation.configured)
-  if (!any) return { cards: merged, status: 'error', error: errors[0] || '未知错误' }
-  return { cards: merged, status: 'ok', error: null }
-}
-
 export async function askBatch(cards: TopicCard[]): Promise<{ rows: Map<string, Partial<AiShape>>; error: string | null }> {
   try {
     return { rows: await askModel(cards, true), error: null }
@@ -742,42 +723,6 @@ function aiInput(card: TopicCard) {
     verification: card.verification,
     posts: card.posts.map((post) => ({ author: post.author, text: post.text.slice(0, 240), url: post.url, likes: post.likes })),
   }
-}
-
-function mergeAi(card: TopicCard, raw: Partial<AiShape> | undefined): TopicCard {
-  if (!raw) return card
-  const allow = new Set(card.interpretation.sources.map((item) => item.url))
-  const corpus = JSON.stringify(aiInput(card))
-  const keep = (lines: unknown) => (Array.isArray(lines) ? lines.filter((line): line is string => typeof line === 'string' && grounded(line, corpus)) : [])
-  const urls = (Array.isArray(raw.sourceUrls) ? raw.sourceUrls : []).filter((url): url is string => typeof url === 'string' && allow.has(url))
-  const kind = raw.kind === '事件' || raw.kind === 'Meme' || raw.kind === '项目' || raw.kind === '新东西' ? raw.kind : card.kind
-  const newReason = kind === '新东西' ? (typeof raw.newReason === 'string' && raw.newReason.trim() ? raw.newReason.trim() : card.newReason) : null
-  const finalKind = kind === '新东西' && !newReason ? card.kind : kind
-  return {
-    ...card,
-    kind: finalKind,
-    title: typeof raw.title === 'string' && grounded(raw.title, corpus) ? raw.title.slice(0, 80) : card.title,
-    summary: typeof raw.summary === 'string' && grounded(raw.summary, corpus) ? raw.summary.slice(0, 180) : card.summary,
-    summaryIsExcerpt: !(typeof raw.summary === 'string' && grounded(raw.summary, corpus)),
-    newReason: finalKind === '新东西' ? newReason : null,
-    interpretation: {
-      configured: true,
-      facts: keep(raw.facts).slice(0, 5),
-      community: keep(raw.community).slice(0, 4),
-      whyHot: keep(raw.whyHot).slice(0, 3),
-      impact: keep(raw.impact).slice(0, 3),
-      unconfirmed: keep(raw.unconfirmed).slice(0, 4).concat(card.credibilityNote).filter(Boolean),
-      watch: keep(raw.watch).slice(0, 3),
-      inferences: keep(raw.inferences).slice(0, 3),
-      marketing: [...card.anomaly, ...keep(raw.marketing)].slice(0, 4),
-      sources: urls.length ? urls.map((url) => ({ label: url, url })) : card.interpretation.sources,
-    },
-  }
-}
-
-function grounded(line: string, corpus: string): boolean {
-  const numbers = line.match(/\d+(?:\.\d+)?/g) ?? []
-  return numbers.every((value) => corpus.includes(value))
 }
 
 function sourceLinks(posts: { url: string | null; author: string; text: string }[], checks: TopicVerification[]): { label: string; url: string }[] {

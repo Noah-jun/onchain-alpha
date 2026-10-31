@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { SourceStatus } from '@/domain/types'
 import { modeLabel } from '@/domain/format'
-import { DEFAULT_SETTINGS, KEY_FIELDS, readKeys, readSettings, writeKeys, writeSettings, type ClientSettings, type KeyName } from '@/components/terminal/settings'
+import { DEFAULT_AGENT_PROMPT } from '@/domain/agentPrompt'
+import { DEFAULT_SETTINGS, KEY_FIELDS, readAgents, readKeys, readSettings, writeAgents, writeKeys, writeSettings, type AgentDraft, type ClientSettings, type KeyName } from '@/components/terminal/settings'
 import { DataNotice, ErrorBlock, LoadingBlock, PageIntro, useResearch } from '@/components/terminal/ui'
 
 interface SourceResponse {
@@ -30,6 +31,7 @@ export default function SettingsPage() {
         行情、资金费率和 5 分钟波动默认使用免密钥公开接口。密钥保存在这台浏览器，请求时通过请求头交给服务端，页面和接口响应都不会回显密钥。演示快照只有 RESEARCH_ALLOW_DEMO=1 才会出现。
       </PageIntro>
       <KeyVault onChanged={() => void sourceState.reload()} />
+      <AgentPrompts />
       <section className="rounded-lg border border-[#e7e7e4] bg-white p-4">
         <h2 className="text-sm font-semibold">资金异动最低金额</h2>
         <p className="mt-2 text-xs leading-5 text-neutral-500">单笔美元名义价值低于这个数的不显示。没有美元金额的记录也无法确认，同样不显示。默认 500000。</p>
@@ -99,6 +101,48 @@ export default function SettingsPage() {
         <p className="mt-2">在 Vercel 或 <span className="num">web/.env</span> 里填写上表里的密钥。没填的模块保持未配置。公开行情失败时留空，不会换回演示价格。</p>
         <p className="mt-2">复制 <span className="num">web/.env.example</span> 即可看到全部变量。旧版信号页仍在 /legacy。</p>
       </section>
+    </div>
+  )
+}
+
+function AgentPrompts() {
+  const [topic, setTopic] = useState<AgentDraft>({ prompt: DEFAULT_AGENT_PROMPT, model: '' })
+  const [news, setNews] = useState<AgentDraft>({ prompt: DEFAULT_AGENT_PROMPT, model: '' })
+  const [note, setNote] = useState('')
+  useEffect(() => {
+    const stored = readAgents()
+    setTopic({ prompt: stored.topic.prompt || DEFAULT_AGENT_PROMPT, model: stored.topic.model })
+    setNews({ prompt: stored.news.prompt || DEFAULT_AGENT_PROMPT, model: stored.news.model })
+  }, [])
+  function persist(nextTopic: AgentDraft, nextNews: AgentDraft, label: string) {
+    setTopic(nextTopic)
+    setNews(nextNews)
+    writeAgents({ topic: nextTopic, news: nextNews })
+    setNote(`${label}已保存在这台浏览器`)
+  }
+  return (
+    <section className="mb-6 rounded-lg border border-[#e7e7e4] bg-white p-4">
+      <h2 className="text-sm font-semibold">AI 解读 Agent</h2>
+      <p className="mt-2 text-xs leading-5 text-neutral-500">系统提示词保存在这台浏览器，随解读请求的 JSON 正文发送，不放进请求头。模型留空则使用上面的 AI Model。</p>
+      <AgentEditor name="话题解读 Agent" value={topic} onSave={(next) => persist(next, news, '话题解读 Agent')} />
+      <AgentEditor name="新闻解读 Agent" value={news} onSave={(next) => persist(topic, next, '新闻解读 Agent')} />
+      {note ? <p className="mt-3 text-xs text-emerald-700">{note}</p> : null}
+    </section>
+  )
+}
+
+function AgentEditor({ name, value, onSave }: { name: string; value: AgentDraft; onSave: (next: AgentDraft) => void }) {
+  return (
+    <div className="mt-4 border-t border-[#e7e7e4] pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">{name}</h3>
+        <button type="button" className="rounded-full bg-[#f3f3f1] px-3 py-1 text-xs" onClick={() => onSave({ prompt: DEFAULT_AGENT_PROMPT, model: value.model })}>恢复默认</button>
+      </div>
+      <textarea aria-label={`${name}系统提示词`} value={value.prompt} onChange={(event) => onSave({ ...value, prompt: event.target.value })} className="mt-2 min-h-40 w-full px-3 py-2 text-sm" />
+      <label className="mt-2 block text-xs text-neutral-500">
+        模型覆盖
+        <input aria-label={`${name}模型`} value={value.model} placeholder="留空使用全局 AI Model" onChange={(event) => onSave({ ...value, model: event.target.value })} className="mt-1 w-full px-3 py-2 text-sm" />
+      </label>
     </div>
   )
 }

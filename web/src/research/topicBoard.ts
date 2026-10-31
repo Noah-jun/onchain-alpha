@@ -70,6 +70,8 @@ export interface TopicBoard {
   error: string | null
   emptyReason: string | null
   windowHours: 24
+  aiStatus: 'unconfigured' | 'ok' | 'error'
+  aiError: string | null
 }
 
 const GENERIC = new Set(['BTC', 'ETH', 'SOL', 'CRYPTO', 'BITCOIN', 'ETHEREUM', 'WEB3', 'NFT', 'DEFI', 'USDT', 'USDC', 'BNB'])
@@ -101,25 +103,25 @@ export async function buildTopicBoard(): Promise<TopicBoard> {
   const cachedBoard = await readBoard(key)
   if (cachedBoard) return cachedBoard
   const board = await computeBoard()
-  if (board.provenance.mode !== 'unconfigured') await writeBoard(key, board)
+  if (board.provenance.mode !== 'unconfigured' && board.aiStatus !== 'error') await writeBoard(key, board)
   return board
 }
 
 async function computeBoard(): Promise<TopicBoard> {
   if (!newsliquidToken() && !envSet('X_BEARER_TOKEN')) {
     const note = `${missingKey('NEWSLIQUID_API_TOKEN')} X_BEARER_TOKEN 是可选补充。未接入时不展示演示话题。`
-    return { items: [], provenance: unconfiguredProvenance('OpenTwitter / X API', note), error: note, emptyReason: null, windowHours: 24 }
+    return { items: [], provenance: unconfiguredProvenance('OpenTwitter / X API', note), error: note, emptyReason: null, windowHours: 24, ...aiIdle() }
   }
   const loaded = await loadSample()
   const span = sampleSpan(loaded.posts)
   if (!loaded.posts.length) {
     const note = [loaded.errors.join('；') || 'X 数据源没有返回近 24 小时的帖文。', span].filter(Boolean).join(' ')
-    return { items: [], provenance: failedLiveProvenance(loaded.sources.join(' / ') || 'OpenTwitter / X API', note, 'https://ai.6551.io/open/twitter_search'), error: loaded.errors.join('；') || note, emptyReason: null, windowHours: 24 }
+    return { items: [], provenance: failedLiveProvenance(loaded.sources.join(' / ') || 'OpenTwitter / X API', note, 'https://ai.6551.io/open/twitter_search'), error: loaded.errors.join('；') || note, emptyReason: null, windowHours: 24, ...aiIdle() }
   }
   const clusters = rank(cluster(loaded.posts))
   const verified = await verifyAll(clusters.slice(0, 8))
   const interpreted = await interpret(verified)
-  const items = interpreted.sort((a, b) => b.heat - a.heat)
+  const items = interpreted.cards.sort((a, b) => b.heat - a.heat)
   const note = [
     span,
     `来源 ${loaded.sources.join(' / ')}。${loaded.queryNote}`,
@@ -132,7 +134,13 @@ async function computeBoard(): Promise<TopicBoard> {
     error: loaded.errors.join('；') || null,
     emptyReason: items.length ? null : '当前没有足够证据支持的热点',
     windowHours: 24,
+    aiStatus: interpreted.status,
+    aiError: interpreted.error,
   }
+}
+
+function aiIdle(): Pick<TopicBoard, 'aiStatus' | 'aiError'> {
+  return { aiStatus: envSet('AI_API_KEY') ? 'ok' : 'unconfigured', aiError: null }
 }
 
 const SEARCH_KEYWORDS = ['bitcoin', 'ethereum', 'solana', 'airdrop', 'hack', 'exploit', 'listing', 'ETF', 'memecoin', 'uniswap', 'hyperliquid', 'jupiter']
@@ -613,42 +621,97 @@ async function newsCheck(ticker: string | null, address: string | null, fullName
   }
 }
 
-async function interpret(cards: TopicCard[]): Promise<TopicCard[]> {
-  if (!envSet('AI_API_KEY') || !cards.length) return cards
+async function interpret(cards: TopicCard[]): Promise<{ cards: TopicCard[]; status: TopicBoard['aiStatus']; error: string | null }> {
+  if (!envSet('AI_API_KEY')) return { cards, status: 'unconfigured', error: null }
+  if (!cards.length) return { cards, status: 'ok', error: null }
+  const batches: TopicCard[][] = []
+  for (let index = 0; index < cards.length; index += 3) batches.push(cards.slice(index, index + 3))
+  const results = await Promise.all(batches.map((batch) => askBatch(batch)))
+  const byId = new Map<string, Partial<AiShape>>()
+  const errors: string[] = []
+  for (const result of results) {
+    for (const [id, row] of result.rows) byId.set(id, row)
+    if (result.error) errors.push(result.error)
+  }
+  const merged = cards.map((card) => mergeAi(card, byId.get(card.id)))
+  const any = merged.some((card) => card.interpretation.configured)
+  if (!any) return { cards: merged, status: 'error', error: errors[0] || '未知错误' }
+  return { cards: merged, status: 'ok', error: null }
+}
+
+export async function askBatch(cards: TopicCard[]): Promise<{ rows: Map<string, Partial<AiShape>>; error: string | null }> {
   try {
-    const ai = await askModel(cards)
-    return cards.map((card, index) => mergeAi(card, ai[index]))
-  } catch {
-    return cards
+    return { rows: await askModel(cards, true), error: null }
+  } catch (error) {
+    if (error instanceof Error && /HTTP 400/.test(error.message)) {
+      try {
+        return { rows: await askModel(cards, false), error: null }
+      } catch (retryError) {
+        return { rows: new Map(), error: topicAiReason(retryError) }
+      }
+    }
+    return { rows: new Map(), error: topicAiReason(error) }
   }
 }
 
-async function askModel(cards: TopicCard[]): Promise<Partial<AiShape>[]> {
-  const corpus = JSON.stringify(cards.map(aiInput))
+async function askModel(cards: TopicCard[], jsonMode: boolean): Promise<Map<string, Partial<AiShape>>> {
   const base = (secretValue('AI_BASE_URL') || 'https://api.openai.com/v1').replace(/\/$/, '')
+  const payload: Record<string, unknown> = {
+    model: secretValue('AI_MODEL') || 'gpt-4o-mini',
+    temperature: 0,
+    messages: [
+      {
+        role: 'system',
+        content: '你只根据用户给出的帖文和核实结果写简体中文 JSON。不要新增数字、地址、链接或新闻。sourceUrls 必须是输入里出现过的 URL。kind 只能是 事件、Meme、项目、新东西。新东西必须给出 newReason。事实、社区观点和推断分开放。每个话题必须带回输入里的 id。只返回 {"topics":[...]}。',
+      },
+      { role: 'user', content: JSON.stringify(cards.map(aiInput)) },
+    ],
+  }
+  if (jsonMode) payload.response_format = { type: 'json_object' }
   const body = await fetchJson<{ choices?: { message?: { content?: string } }[] }>(`${base}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${secretValue('AI_API_KEY')}` },
-    body: JSON.stringify({
-      model: secretValue('AI_MODEL') || 'gpt-4o-mini',
-      temperature: 0,
-      messages: [
-        {
-          role: 'system',
-          content: '你只根据用户给出的帖文和核实结果写简体中文 JSON。不要新增数字、地址、链接或新闻。sourceUrls 必须是输入里出现过的 URL。kind 只能是 事件、Meme、项目、新东西。新东西必须给出 newReason。事实、社区观点和推断分开放。只返回 {"topics":[...]}，长度与输入相同。',
-        },
-        { role: 'user', content: corpus },
-      ],
-    }),
-  }, 20000)
+    body: JSON.stringify(payload),
+  }, 60000)
   const content = body.choices?.[0]?.message?.content
   if (!content) throw new Error('空响应')
-  const parsed = JSON.parse(extractJson(content)) as { topics?: Partial<AiShape>[] }
-  if (!Array.isArray(parsed.topics)) throw new Error('结构不符')
-  return parsed.topics
+  return matchTopicRows(cards, content)
+}
+
+export function matchTopicRows(cards: { id: string }[], content: string): Map<string, Partial<AiShape>> {
+  let parsed: { topics?: Partial<AiShape>[] }
+  try {
+    parsed = JSON.parse(extractJson(content)) as { topics?: Partial<AiShape>[] }
+  } catch {
+    throw new Error('JSON 解析失败')
+  }
+  const topics = Array.isArray(parsed.topics) ? parsed.topics : []
+  const identified = topics.filter((topic) => typeof topic?.id === 'string')
+  if (identified.length) {
+    const rows = new Map(identified.map((topic) => [topic.id as string, topic]))
+    if (!cards.some((card) => rows.has(card.id))) throw new Error('返回条数不符')
+    return rows
+  }
+  if (topics.length !== cards.length) throw new Error('返回条数不符')
+  return new Map(cards.map((card, index) => [card.id, topics[index]]))
+}
+
+export function topicAiReason(error: unknown): string {
+  const name = error instanceof Error ? error.name : ''
+  const message = error instanceof Error ? error.message : ''
+  const blob = `${name} ${message}`
+  if (/HTTP 401|HTTP 403/.test(blob)) return '401 key 无效'
+  if (/HTTP 404/.test(blob)) return '404 模型不存在'
+  if (/HTTP 429/.test(blob)) return '429 限流'
+  if (/timeout|timed out|aborted|AbortError|TimeoutError/i.test(blob)) return '超时'
+  if (/返回条数不符/.test(blob)) return '返回条数不符'
+  if (/JSON|Unexpected|结构不符|空响应/.test(blob)) return 'JSON 解析失败'
+  const detail = message.replace(/\s+/g, ' ').trim().slice(0, 120)
+  return detail || '未知错误'
 }
 
 interface AiShape {
+  id?: string
   kind: TopicKind
   title: string
   summary: string
@@ -731,7 +794,11 @@ function sourceLinks(posts: { url: string | null; author: string; text: string }
 
 function extractJson(content: string): string {
   const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/)
-  return fenced ? fenced[1] : content
+  const raw = (fenced ? fenced[1] : content).trim()
+  const start = raw.indexOf('{')
+  const end = raw.lastIndexOf('}')
+  if (start >= 0 && end > start) return raw.slice(start, end + 1)
+  return raw
 }
 
 function ymd(time: number): string {
@@ -750,7 +817,7 @@ function num(value: unknown): number | null {
 
 function cacheKey(): string {
   const stamp = createHash('sha256').update(`${secretValue('AI_API_KEY') || ''}|${secretValue('NEWSLIQUID_API_TOKEN') || ''}|${secretValue('X_BEARER_TOKEN') || ''}`).digest('hex').slice(0, 10)
-  return `topic-board:v3:${ymd(Date.now())}:${stamp}`
+  return `topic-board:v4:${ymd(Date.now())}:${stamp}`
 }
 
 const poolMemory: RawPost[] = []

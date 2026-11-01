@@ -196,7 +196,7 @@ function NewsCard({ article }: { article: NewsArticle }) {
   const tag = dailyTag(article)
   const copy = useTranslatedCopy([
     { text: title, zh: title === article.title ? article.sourceZh?.title : undefined },
-  ])
+  ], { defaultZh: true })
   return (
     <li>
       <article className="rounded-lg border border-[#e7e7e4] bg-white p-4">
@@ -217,7 +217,7 @@ function NewsCard({ article }: { article: NewsArticle }) {
           {tag ? <span className="rounded-full bg-[#f3f3f1] px-2 py-0.5 text-neutral-700">{tag}</span> : null}
           <HeatTags tags={article.analysis.heatTags} />
         </p>
-        <CopySwitch copy={copy} />
+        <CopySwitch copy={copy} translatedLabel="显示译文" />
       </article>
     </li>
   )

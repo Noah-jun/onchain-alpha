@@ -115,12 +115,11 @@ function Reading({ topic }: { topic: TopicCard }) {
   const copy = useTranslatedCopy([
     { text: topic.title },
     { text: topic.summary },
-    ...topic.posts.slice(0, 4).map((post) => ({ text: post.text })),
   ])
   const view = (text: string) => copy.view(text)
   const ai = topic.interpretation
   return (
-    <aside className="rounded-lg border border-[#e7e7e4] bg-white p-4 lg:sticky lg:top-4">
+    <aside className="rounded-lg border border-[#e7e7e4] bg-white p-4 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:overscroll-contain">
       <p className="text-xs text-neutral-500">{topic.kind} · {topic.credibility}</p>
       <h2 className="mt-1 text-lg font-medium">{view(topic.title)}</h2>
       <CopySwitch copy={copy} />
@@ -137,18 +136,6 @@ function Reading({ topic }: { topic: TopicCard }) {
             ))}
           </ul>
         ) : <p className="mt-2 text-sm text-neutral-500">这些帖文没有返回可打开的链接。</p>}
-      </div>
-      <div className="mt-4">
-        <h3 className="text-xs text-neutral-500">样本帖文</h3>
-        <ul className="mt-2 space-y-2">
-          {topic.posts.slice(0, 4).map((post) => (
-            <li key={post.id} className="rounded bg-[#f7f7f5] p-3 text-sm leading-6">
-              <p className="text-xs text-neutral-500">{post.author}{post.likes != null ? ` · 赞 ${post.likes}` : ''}</p>
-              <p className="mt-1">{view(post.text)}</p>
-              {post.url ? <a className="mt-1 inline-block text-xs underline" href={post.url} target="_blank" rel="noreferrer">原帖</a> : null}
-            </li>
-          ))}
-        </ul>
       </div>
     </aside>
   )

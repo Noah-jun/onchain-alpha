@@ -61,11 +61,12 @@ export interface CopyPart {
   zh?: string | null
 }
 
-export function useTranslatedCopy(parts: CopyPart[]) {
+export function useTranslatedCopy(parts: CopyPart[], options?: { defaultZh?: boolean }) {
   const { preferZh } = useContext(Prefs)
   const [override, setOverride] = useState<boolean | null>(null)
   const [hits, setHits] = useState<Record<string, Hit>>({})
-  const showing = override ?? preferZh
+  const base = Boolean(options?.defaultZh) || preferZh
+  const showing = override ?? base
   const key = parts.map((part) => `${part.text}\n${part.zh || ''}`).join('\u0001')
   const stableParts = useMemo(() => parts, [key])
   const needs = stableParts.some((part) => needsTranslation(part.text))
@@ -106,7 +107,7 @@ export function useTranslatedCopy(parts: CopyPart[]) {
     showing: showing && needs,
     anyTranslated,
     inlineMessage,
-    toggle: () => setOverride(!(override ?? preferZh)),
+    toggle: () => setOverride(!(override ?? base)),
     view: (text: string) => {
       const translated = hits[text]?.translated
       if (!showing || !needsTranslation(text) || !translated) return decodeHtmlEntities(text)
@@ -115,12 +116,12 @@ export function useTranslatedCopy(parts: CopyPart[]) {
   }
 }
 
-export function CopySwitch({ copy }: { copy: ReturnType<typeof useTranslatedCopy> }) {
+export function CopySwitch({ copy, translatedLabel = '翻译' }: { copy: ReturnType<typeof useTranslatedCopy>; translatedLabel?: string }) {
   if (!copy.needs) return null
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <button type="button" className="rounded-full bg-[#f3f3f1] px-3 py-1 text-xs text-neutral-800" onClick={copy.toggle}>
-        {copy.showing ? '显示原文' : '翻译'}
+        {copy.showing ? '显示原文' : translatedLabel}
       </button>
       {copy.showing && copy.anyTranslated ? <span className="text-[11px] text-neutral-500">机器翻译</span> : null}
       {copy.inlineMessage ? <span className="text-xs text-red-700">{copy.inlineMessage}</span> : null}

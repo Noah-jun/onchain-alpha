@@ -42,7 +42,7 @@ function NewsDetail({ article }: { article: NewsArticle }) {
   const copy = useTranslatedCopy([
     { text: title, zh: title === article.title ? article.sourceZh?.title : undefined },
     { text: body, zh: article.sourceZh?.body },
-  ])
+  ], { defaultZh: true })
   const shownBody = copy.view(body)
   return (
     <div className="space-y-4">
@@ -50,7 +50,7 @@ function NewsDetail({ article }: { article: NewsArticle }) {
         {article.publisher} · {formatShanghai(article.publishedAt)}
         {article.url ? <a className="ml-2 underline" href={article.url} target="_blank" rel="noreferrer">原文链接</a> : ' · 无外部链接'}
       </PageIntro>
-      <CopySwitch copy={copy} />
+      <CopySwitch copy={copy} translatedLabel="显示译文" />
       <DataNotice provenance={article.provenance} />
       <article className="rounded-lg border border-[#e7e7e4] bg-white p-4 text-sm leading-7">
         {newsParagraphs(shownBody).map((paragraph) => <p key={paragraph} className="mt-3 first:mt-0">{paragraph}</p>)}

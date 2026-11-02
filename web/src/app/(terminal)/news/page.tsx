@@ -9,7 +9,7 @@ import { Assets, DataNotice, EmptyBlock, ErrorBlock, FilterButton, HeatTags, Loa
 import { researchHeaders } from '@/components/terminal/settings'
 import { CopySwitch, TranslateAllToggle, useTranslatedCopy } from '@/components/terminal/translate'
 import { rememberSeen } from '@/components/terminal/seen'
-import { shortTitle } from '@/domain/newsText'
+import { plainNews } from '@/domain/newsText'
 
 interface NewsResponse {
   items: NewsArticle[]
@@ -165,6 +165,10 @@ function withCurrent(values: string[], current: string): string[] {
   return [...values, current]
 }
 
+function listTitle(text: string): string {
+  return plainNews(text).replace(/\s+/g, ' ').trim()
+}
+
 function dailyTag(article: NewsArticle): string | null {
   const grade = article.daily?.grade
   const score = article.daily?.score
@@ -192,10 +196,10 @@ function DailyTweets({ tweets }: { tweets: DailyHotTweet[] }) {
 }
 
 function NewsCard({ article }: { article: NewsArticle }) {
-  const title = shortTitle(article.title, article.summary, article.body)
+  const title = listTitle(article.title)
   const tag = dailyTag(article)
   const copy = useTranslatedCopy([
-    { text: title, zh: title === article.title ? article.sourceZh?.title : undefined },
+    { text: title, zh: article.sourceZh?.title ? listTitle(article.sourceZh.title) : undefined },
   ], { defaultZh: true })
   return (
     <li>
@@ -205,7 +209,7 @@ function NewsCard({ article }: { article: NewsArticle }) {
           <span>{article.provenance.mode === 'demo' ? '演示' : article.provenance.mode === 'live' ? '实时' : '未配置'}</span>
         </div>
         <h2 className="mt-2 text-base font-medium leading-6">
-          <Link href={`/news/${article.id}`} className="line-clamp-2 text-neutral-900">{copy.view(title)}</Link>
+          <Link href={`/news/${article.id}`} className="line-clamp-2 w-full text-neutral-900">{copy.view(title)}</Link>
         </h2>
         <p className="mt-3 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
           <span>{article.analysis.eventType}</span>

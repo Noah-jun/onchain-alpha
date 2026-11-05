@@ -22,7 +22,7 @@ export default function Header({ marketData, activeTab, onTabChange, isLoading, 
             <Activity className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800 tracking-tight">OnChain Alpha</h1>
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">WEB3 AI investment research assistant</h1>
           </div>
         </div>
 

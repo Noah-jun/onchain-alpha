@@ -1,0 +1,14 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getFlows } from '@/research/service'
+import { withClientKeys } from '@/research/requestSecrets'
+
+export const dynamic = 'force-dynamic'
+export const preferredRegion = 'hkg1'
+
+export async function GET(request: NextRequest) {
+  return withClientKeys(request, async () => {
+  const extra = (request.nextUrl.searchParams.get('symbols') || '').split(',').filter(Boolean)
+  const minUsd = Number(request.nextUrl.searchParams.get('minUsd') || '500000')
+  return NextResponse.json(await getFlows(extra, minUsd))
+})
+}

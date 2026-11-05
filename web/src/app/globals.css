@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -16,8 +16,70 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
   background-color: #f8fafc;
+}
+
+.terminal {
+  background: #f6f6f4;
+  color: #171717;
+  font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+}
+
+.terminal .card {
+  background: #fff;
+  border: 1px solid #e7e7e4;
+  border-radius: 20px;
+}
+
+.terminal input,
+.terminal select,
+.terminal textarea {
+  background: #fff;
+  border: 1px solid #e4e4e1;
+  border-radius: 16px;
+  color: #171717;
+}
+
+.terminal input:focus,
+.terminal textarea:focus {
+  outline: none;
+  border-color: #171717;
+  box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.06);
+}
+
+.terminal a {
+  color: inherit;
+}
+
+.terminal nav a {
+  color: #404040;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.terminal nav a:hover {
+  background: #ffffff;
+  color: #171717;
+}
+
+.terminal nav a[data-active='true'],
+.terminal nav a[aria-current='page'] {
+  background: #d4d4d4;
+  color: #111111;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 #171717;
+}
+
+.terminal nav a[data-active='true']:hover,
+.terminal nav a[aria-current='page']:hover {
+  background: #c4c4c4;
+  color: #111111;
+}
+
+.terminal .num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 自定义滚动条 */

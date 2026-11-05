@@ -2274,7 +2274,7 @@ function SectorDashboard({ onSelect }: { onSelect: (id: string) => void }) {
     return m[name.toLowerCase().trim()] || null
   }
   return <div className="p-6">
-    {isAi && <div className="text-[10px] text-slate-400 mb-4">AI 每24h全网检索分析 · 数据来源: CoinGecko + Odaily + OnChain Alpha</div>}
+    {isAi && <div className="text-[10px] text-slate-400 mb-4">AI 每24h全网检索分析 · 数据来源: CoinGecko + Odaily + WEB3 AI investment research assistant</div>}
     <div className="space-y-2">
       {sectors.map((s: any, i: number) => {
         const id = s.id || (s.name || '').toLowerCase().replace(/\s+/g, '-')

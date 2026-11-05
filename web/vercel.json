@@ -2,6 +2,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
+  "regions": ["hkg1"],
   "functions": {
     "app/api/ai-project-detail/route.ts": {
       "maxDuration": 120

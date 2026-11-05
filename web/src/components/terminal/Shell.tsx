@@ -28,8 +28,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="terminal min-h-screen">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-[#e7e7e4] bg-[#f6f6f4] px-4 py-5 lg:flex">
         <Link href="/" className="px-2">
-          <p className="text-xs tracking-[0.18em] text-neutral-900">ONCHAIN ALPHA</p>
-          <h1 className="mt-1 text-lg font-semibold">链上研究终端</h1>
+          <p className="text-xs tracking-[0.18em] text-neutral-900">WEB3 AI investment research assistant</p>
+          <h1 className="mt-1 text-lg font-semibold">AI投研助手</h1>
         </Link>
         <nav className="mt-8 flex flex-1 flex-col gap-1">
           {NAV.map((item) => (
@@ -52,7 +52,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="lg:pl-60">
         <div className="sticky top-0 z-20 border-b border-[#e7e7e4] bg-[#f6f6f4]/95 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
-            <Link href="/" className="text-sm font-semibold">链上研究终端</Link>
+            <Link href="/" className="text-sm font-semibold">AI投研助手</Link>
             <Link href="/settings" className="text-xs text-neutral-900">设置</Link>
           </div>
           <nav className="flex gap-2 overflow-x-auto px-4 pb-3">
